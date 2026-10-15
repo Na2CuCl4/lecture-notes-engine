@@ -16,7 +16,7 @@ docker compose up -d web worker
 
 打开 <http://localhost:3000/> 查看项目主界面，进入 `/advanced-calculus-i/` 或 `/calculus-demo/`。两个默认项目复用同一份验收样例，用来演示项目切换，并不代表已迁移两门正式课程。首次 builder 命令生成全部项目的网页和全文 PDF，全部成功后统一发布；web 和 worker 读取相同的只读内容快照。
 
-正式课程的挂载、子路径代理、资源限制、CI 和回滚步骤见 [部署说明](docs/deployment.md)。
+服务器直接拉取已发布镜像，无需复制引擎源码，见 [Docker Hub 发布与部署](docs/dockerhub-release.md) 和 `deploy/` 中的独立 Compose。正式课程的挂载、子路径代理、资源限制、CI 和回滚步骤见 [部署说明](docs/deployment.md)。
 
 ### 本地写作与开发
 

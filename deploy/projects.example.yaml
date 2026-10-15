@@ -1,0 +1,17 @@
+schemaVersion: 1
+title: 课程讲义
+projects:
+  # Copy examples/calculus from the engine repository to content/demo on the host.
+  # This is a small demonstration, not a migration of the original courses.
+  - id: lecture-demo
+    content: /content/demo
+    title: 高等微积分（示例）
+    basePath: /lecture-demo/
+    # Replace this with the public URL before publishing to the Internet.
+    siteUrl: http://localhost:3000/lecture-demo/
+
+  # Add migrated Markdown courses using paths inside the builder container:
+  # - id: advanced-calculus-i
+  #   content: /content/advanced-calculus-i
+  #   basePath: /advanced-calculus-i/
+  #   siteUrl: https://notes.example.com/advanced-calculus-i/
