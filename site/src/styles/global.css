@@ -24,8 +24,8 @@ summary::-webkit-details-marker{display:none}
 .topbar-brand{font-weight:700;letter-spacing:.035em;font-size:17px}
 .download-link{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600}
 .download-link svg{width:17px;height:17px}
-.sidebar{position:fixed;top:var(--topbar);left:0;bottom:0;width:var(--sidebar);background:var(--green);color:#d7e3d8;overflow-y:auto;overscroll-behavior:contain;z-index:35;padding:32px 19px 26px;transition:transform .22s ease;scrollbar-width:thin;scrollbar-color:#507067 var(--green)}
-.nav-overview{padding:10px 11px 10px 38px;display:block;font-size:14px;line-height:1.7;font-weight:600;color:#ecf0e5;margin:8px 0}
+.sidebar{position:fixed;top:var(--topbar);left:0;bottom:0;width:var(--sidebar);background:var(--green);color:#d7e3d8;overflow-y:auto;overscroll-behavior:contain;z-index:35;padding:12px 19px 26px;transition:transform .22s ease;scrollbar-width:thin;scrollbar-color:#507067 var(--green)}
+.nav-overview{padding:10px 11px;display:block;font-size:14px;line-height:1.7;font-weight:600;color:#ecf0e5;margin:8px 0}
 .nav-overview.active{color:#f5eedb}
 .nav-chapter{margin:8px 0}
 .nav-chapter>summary{display:flex;align-items:center;gap:11px;padding:10px 11px;font-size:14px;line-height:1.7;font-weight:600;color:#ecf0e5}
@@ -227,7 +227,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .version-warning button{border:0;background:none;color:#88652f;padding:9px 0 0;font-weight:600;font-size:14px;text-decoration:underline;text-underline-offset:3px}
 @media(min-width:1600px){:root{--sidebar:310px}
 .page-container{padding-top:52px}
-.sidebar{padding-top:37px}
 .hero-copy h1{font-size:47px}
 }
 .share-url{display:block;width:100%;padding:9px;border:1px solid var(--line);border-radius:3px;background:var(--surface);font-size:14px;margin-top:7px}
