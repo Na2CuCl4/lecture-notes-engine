@@ -1,0 +1,12 @@
+node_modules/
+.astro/
+site/.astro/
+site/dist/
+site/public/vendor/
+dist/
+.state/
+.work/
+.env
+*.log
+*.tsbuildinfo
+

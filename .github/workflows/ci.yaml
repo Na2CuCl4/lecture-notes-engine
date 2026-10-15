@@ -1,0 +1,43 @@
+name: Engine validation
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - name: Validate Compose
+        run: docker compose --profile tools config --quiet
+      - name: Build runtime images
+        run: docker compose build web worker
+      - name: Build demo website and full PDF through the shared queue
+        run: docker compose run --rm builder
+      - name: Start web and worker
+        run: docker compose up -d --wait web worker
+      - name: Verify health
+        run: curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/healthz
+      - name: Capture logs
+        if: always()
+        run: docker compose logs --no-color
+      - name: Stop test containers
+        if: always()
+        run: docker compose down

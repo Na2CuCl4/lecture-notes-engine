@@ -1,0 +1,110 @@
+name: lecture-notes-engine
+
+x-runtime: &runtime
+  init: true
+  read_only: true
+  security_opt:
+    - no-new-privileges:true
+  cap_drop:
+    - ALL
+  tmpfs:
+    - /tmp:rw,noexec,nosuid,size=512m,mode=1777
+    - /app/.work:rw,noexec,nosuid,size=512m,mode=1777
+    # Astro's content type generation writes this transient directory even
+    # when Vite's cacheDir is redirected. It must never persist in the image.
+    - /app/site/.astro:rw,noexec,nosuid,size=128m,mode=1777
+  environment: &environment
+    NODE_ENV: production
+    HOST: 0.0.0.0
+    PORT: "3000"
+    RELEASES_DIR: /releases
+    CURRENT_FILE: /releases/current.json
+    STATE_DIR: /state
+    ASTRO_CACHE_DIR: /tmp/lecture-notes-astro
+    PRINT_CONCURRENCY: ${PRINT_CONCURRENCY:-1}
+    PRINT_TIMEOUT_MS: ${PRINT_TIMEOUT_MS:-180000}
+    BOOK_TIMEOUT_MS: ${BOOK_TIMEOUT_MS:-900000}
+    PRINT_MAX_QUEUED: ${PRINT_MAX_QUEUED:-30}
+    PRINT_MAX_ACTIVE_PER_SOURCE: ${PRINT_MAX_ACTIVE_PER_SOURCE:-3}
+    PRINT_MAX_PROBLEMS: ${PRINT_MAX_PROBLEMS:-500}
+    PRINT_LEASE_MS: ${PRINT_LEASE_MS:-60000}
+    PRINT_MAX_ATTEMPTS: ${PRINT_MAX_ATTEMPTS:-2}
+    PRINT_CACHE_TTL_HOURS: ${PRINT_CACHE_TTL_HOURS:-168}
+    PRINT_CACHE_MAX_MB: ${PRINT_CACHE_MAX_MB:-1024}
+    PRINT_LOG_TTL_HOURS: ${PRINT_LOG_TTL_HOURS:-168}
+    TRUST_PROXY: ${TRUST_PROXY:-false}
+
+services:
+  web:
+    <<: *runtime
+    image: ${ENGINE_IMAGE:-lecture-notes-engine}:web-${ENGINE_VERSION:-local}
+    build:
+      context: .
+      target: web
+    command: ["npm", "run", "start"]
+    restart: unless-stopped
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-3000}:3000"
+    volumes:
+      - releases:/releases:ro
+      - state:/state
+    cpus: 0.75
+    mem_limit: 768m
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/healthz').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      start_period: 15s
+      retries: 3
+
+  worker:
+    <<: *runtime
+    image: ${ENGINE_IMAGE:-lecture-notes-engine}:compiler-${ENGINE_VERSION:-local}
+    build:
+      context: .
+      target: compiler
+      args:
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+    command: ["npm", "run", "worker"]
+    restart: unless-stopped
+    volumes:
+      - releases:/releases:ro
+      - state:/state
+    cpus: 1
+    mem_limit: 2g
+    pids_limit: 128
+
+  # One-shot local preview / CI build. It writes immutable version directories,
+  # then switches current.json only after the requested build has succeeded.
+  builder:
+    <<: *runtime
+    profiles: [tools]
+    image: ${ENGINE_IMAGE:-lecture-notes-engine}:compiler-${ENGINE_VERSION:-local}
+    build:
+      context: .
+      target: compiler
+      args:
+        APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
+    command: ["npm", "run", "build", "--", "--content", "/content", "--out", "/releases", "--book", "--local-worker"]
+    environment:
+      <<: *environment
+      CONTENT_DIR: /content
+      # Keep Astro's prerender scratch space on the releases volume. Astro
+      # renames generated assets into the output tree and cannot cross a mount.
+      ASTRO_CACHE_DIR: /releases/.astro-cache
+    volumes:
+      - type: bind
+        source: ${CONTENT_PATH:-./examples/calculus}
+        target: /content
+        read_only: true
+        bind:
+          create_host_path: false
+      - releases:/releases
+      - state:/state
+    cpus: 1
+    mem_limit: 2g
+    pids_limit: 128
+
+volumes:
+  releases:
+  state:

@@ -1,0 +1,11 @@
+schemaVersion: 1
+engineVersion: '0.1.0'
+title: 高等微积分习题课
+subtitle: 引擎演示 · 微积分 A(1) 历史讲义选摘
+author: 夏子睿
+language: zh-CN
+basePath: '/'
+siteUrl: 'https://www.xiazr20.top/xiazr20/advanced-calculus-i/'
+chapters:
+  - limits
+  - derivatives

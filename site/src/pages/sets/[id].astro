@@ -1,0 +1,12 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ExerciseList from '../../components/ExerciseList.astro';
+import { course, href, chapterForSet } from '../../lib/course';
+export function getStaticPaths() { return Object.values(course.sets).map(set => ({ params: { id: set.id }, props: { set } })); }
+const { set } = Astro.props;
+const chapter = chapterForSet(set.id);
+const problemChapters = [...new Set(set.problems.map(id => course.problems[id].chapterId))];
+---
+<Layout title={set.title} activeChapter={chapter?.id} activeSet={set.id}>
+  <div class="page-container"><nav class="breadcrumbs" aria-label="当前位置"><a href={href()}>课程导览</a>{chapter && <><span aria-hidden="true">/</span><a href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a></>}<span aria-hidden="true">/</span><span>习题集</span></nav><header class="page-heading"><span class="eyebrow">EXERCISE SET</span><h1>{set.title}</h1><div class="prose chapter-introduction" data-math set:html={set.body.html}></div></header><ExerciseList problems={set.problems.map(id => course.problems[id])} chapterId={problemChapters.length === 1 ? problemChapters[0] : undefined} title="习题" printTitle={set.title} showChapter={problemChapters.length > 1} groups={set.groups} /><footer class="page-footer"><a href={chapter ? href(`chapters/${chapter.id}/`) : href()}>← 返回{chapter ? '本章' : '课程'}导览</a><span>{course.title}</span></footer></div>
+</Layout>

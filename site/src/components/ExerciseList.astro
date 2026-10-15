@@ -1,0 +1,33 @@
+---
+import type { Problem } from '../../../src/types';
+import ProblemCard from './ProblemCard.astro';
+import PrintDialog from './PrintDialog.astro';
+import { course, safeJson } from '../lib/course';
+interface Props { problems: Problem[]; chapterId?: string; title: string; printTitle?: string; includeDocuments?: boolean; showChapter?: boolean; groups?: { title: string; problems: string[] }[]; }
+const { problems, chapterId, title, printTitle, includeDocuments = false, showChapter = false, groups = [] } = Astro.props;
+const tags = [...new Set(problems.flatMap(problem => problem.tags))].sort((a, b) => a.localeCompare(b, 'zh'));
+const sources = [...new Set(problems.flatMap(problem => problem.sources))].sort((a, b) => a.localeCompare(b, 'zh'));
+---
+<section class="exercise-section" id="exercises" data-exercise-list>
+  <div class="section-heading"><div><span class="eyebrow">PRACTICE & UNDERSTANDING</span><h2>{title}</h2></div><span class="section-count">{problems.length} 道习题</span></div>
+  <div class="version-warning" role="status" hidden><p>此分享链接来自另一个内容版本。当前页面显示最新内容，打印前请确认使用当前版本。</p><button type="button" data-use-current>使用当前版本</button></div>
+  <form class="filter-panel" aria-label="筛选习题">
+    <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span class="visually-hidden">搜索习题</span><input name="search" type="search" placeholder="搜索题目、知识点、解答…" autocomplete="off" /></label>
+    <div class="filter-fields">
+      <label><span>知识点</span><select name="tag"><option value="">全部标签</option>{tags.map(tag => <option value={tag}>{tag}</option>)}</select></label>
+      <label><span>来源</span><select name="source"><option value="">全部来源</option>{sources.map(source => <option value={source}>{source}</option>)}</select></label>
+      <label><span>难度</span><select name="difficulty"><option value="">全部难度</option>{[1,2,3,4,5].map(value => <option value={value}>{'★'.repeat(value)}</option>)}<option value="unrated">未标定</option></select></label>
+      <label><span>解答</span><select name="solutions"><option value="">不限</option><option value="yes">附有解答</option><option value="no">暂未提供</option></select></label>
+      <button type="button" class="text-button reset-filters">重置筛选</button>
+    </div>
+  </form>
+  <div class="exercise-toolbar">
+    <p class="results-label" role="status" aria-live="polite"><span data-result-count>{problems.length}</span> 道习题<span data-sample-label></span></p>
+    <div class="exercise-tools"><div class="random-tools"><label for="random-count" class="visually-hidden">随机抽取题数</label><input id="random-count" name="random-count" type="number" min="1" max={Math.max(1, problems.length)} value={Math.min(3, Math.max(1, problems.length))} inputmode="numeric" /><button class="button button-subtle" type="button" data-random>随机抽题</button></div><button class="text-button" type="button" data-clear-sample hidden>返回筛选结果</button><button class="button button-subtle" type="button" data-toggle-solutions>展开解答</button><button class="button button-subtle" type="button" data-share>分享题单</button><button class="button button-primary" type="button" data-print-open>打印题单 <span aria-hidden="true">↗</span></button></div>
+  </div>
+  <p class="list-message" aria-live="polite" data-list-message></p>
+  <div class="problem-list">{problems.map(problem => <ProblemCard problem={problem} showChapter={showChapter} />)}</div>
+  <div class="empty-state" hidden><span aria-hidden="true">∅</span><h3>暂时没有符合条件的习题</h3><p>试试更少的筛选条件，或换一个关键词。</p><button class="button button-subtle reset-filters" type="button">重置筛选</button></div>
+  <PrintDialog chapterId={chapterId} includeDocuments={includeDocuments} />
+  <script type="application/json" data-exercise-config set:html={safeJson({ title: printTitle || title, chapterId, includeDocuments, groups, revision: course.revision, problems: problems.map(problem => ({ id: problem.id, chapterId: problem.chapterId, tags: problem.tags, sources: problem.sources, difficulty: problem.difficulty, hasSolutions: problem.solutions.length > 0, text: [problem.title, problem.number, problem.body.text, ...problem.tags, ...problem.sources, ...problem.solutions.map(part => part.body.text), ...problem.comments.map(part => part.body.text)].join(' ') })) })}></script>
+</section>

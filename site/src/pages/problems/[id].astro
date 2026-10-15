@@ -1,0 +1,12 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ExerciseList from '../../components/ExerciseList.astro';
+import { course, href } from '../../lib/course';
+export function getStaticPaths() { return Object.values(course.problems).map(problem => ({ params: { id: problem.id }, props: { problem } })); }
+const { problem } = Astro.props;
+const chapter = course.chapters.find(item => item.id === problem.chapterId);
+const sets = Object.values(course.sets).filter(set => set.problems.includes(problem.id));
+---
+<Layout title={`题 ${problem.number}${problem.title ? ` · ${problem.title}` : ''}`} activeChapter={chapter?.id} activeProblems>
+  <div class="page-container single-problem-page"><nav class="breadcrumbs" aria-label="当前位置"><a href={href()}>课程导览</a>{chapter && <><span aria-hidden="true">/</span><a href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a></>}<span aria-hidden="true">/</span><span>题 {problem.number}</span></nav><header class="page-heading"><span class="eyebrow">ONE PROBLEM, DEEPER UNDERSTANDING</span><h1>{problem.title || `题 ${problem.number}`}</h1></header><ExerciseList problems={[problem]} chapterId={problem.chapterId} title={`题 ${problem.number}`} />{sets.length > 0 && <section class="problem-memberships"><h2>也收录于</h2>{sets.map(set => <a href={href(`sets/${set.id}/`)}>{set.title} ↗</a>)}</section>}<footer class="page-footer"><a href={href(`chapters/${problem.chapterId}/#exercises`)}>← 本章所有习题</a><span>{course.title}</span></footer></div>
+</Layout>

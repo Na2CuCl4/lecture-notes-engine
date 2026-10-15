@@ -1,0 +1,38 @@
+# Copy into the CONTENT repository only after its migration/deployment is ready.
+# This file is documentation, not an active workflow in the engine repository.
+# The self-hosted runner must already have an engine checkout + its .env file,
+# and use the same Compose project/volumes as the running web and worker.
+name: Publish lecture content
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lecture-content-publication
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: [self-hosted, lecture-notes]
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build a complete release and publish atomically
+        env:
+          # Configure this repository variable with the server's engine path.
+          ENGINE_DIRECTORY: ${{ vars.ENGINE_DIRECTORY }}
+          CONTENT_DIRECTORY: ${{ github.workspace }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ENGINE_DIRECTORY"
+          cd "$ENGINE_DIRECTORY"
+          CONTENT_PATH="$CONTENT_DIRECTORY" docker compose run --rm builder \
+            npm run build -- --content /content --out /releases --book --local-worker
+      - name: Verify running service
+        run: curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/healthz
