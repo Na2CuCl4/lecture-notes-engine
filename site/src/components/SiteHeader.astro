@@ -1,0 +1,31 @@
+---
+import { course, href, assetHref, safeJson } from '../lib/course';
+interface Props { portal?: boolean }
+const { portal = false } = Astro.props;
+const title = portal ? '课程项目' : course.title;
+const config = { portal, ...(!portal ? { project: { id: course.projectId || 'default', title: course.title, basePath: course.basePath || '/' } } : {}) };
+---
+<header class="topbar">
+  {!portal && <button class="icon-button menu-toggle" type="button" aria-label="展开或收起目录" aria-controls="course-sidebar" aria-expanded="true"><span aria-hidden="true">☰</span></button>}
+  <a class="topbar-brand" href={portal ? '/' : href()} data-project-fallback>{title}</a>
+  <details class="project-picker" data-project-picker hidden>
+    <summary class="topbar-brand" aria-label="切换项目"><span>{title}</span><span class="project-picker-chevron" aria-hidden="true">▾</span></summary>
+    <nav class="project-menu" aria-label="切换项目" data-project-links></nav>
+  </details>
+  <div class="topbar-actions">
+    <button type="button" class="print-status-button" data-print-history-open aria-haspopup="dialog"><span>打印状态</span><span class="print-status-count" data-print-status-count hidden></span></button>
+    {!portal && <a class="download-link" href={assetHref('downloads/main.pdf')} download><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg><span>全文 PDF</span></a>}
+  </div>
+</header>
+<dialog class="print-dialog print-history-dialog" data-print-history-dialog aria-labelledby="print-history-title">
+  <div class="dialog-header"><h2 id="print-history-title">打印任务</h2><button class="icon-button" data-print-history-close aria-label="关闭打印状态" type="button">×</button></div>
+  <p class="print-history-note">本浏览器提交的任务会保存在这里，切换页面或项目后仍可查看。</p>
+  <div class="print-error" data-print-history-error role="alert" hidden></div>
+  <div class="print-jobs" data-print-history-list aria-live="polite"></div>
+  <div class="print-history-footer"><span>最多保留 50 条记录；清除记录不会取消任务。</span><button type="button" class="text-button" data-print-history-clear>清除记录</button></div>
+</dialog>
+<script id="global-client-config" type="application/json" set:html={safeJson(config)}></script>
+<script>
+  import { startGlobalUI } from '../scripts/global-ui';
+  startGlobalUI();
+</script>

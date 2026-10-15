@@ -10,11 +10,14 @@ export interface Chapter { id: string; title: string; number: number; body: Body
 export interface Reference { id: string; title: string; label: string; url: string; ownerId: string; chapterId?: string; kind: 'chapter' | 'document' | 'problem' | 'set' | 'heading' | 'equation' | 'figure' | 'semantic' }
 export interface Course {
   schemaVersion: 1; engineVersion: string; revision: string; builtAt: string;
+  projectId?: string;
   title: string; subtitle?: string; author: string; language: string; basePath: string; siteUrl: string;
   chapters: Chapter[]; documents: Record<string, Document>; problems: Record<string, Problem>; sets: Record<string, ExerciseSet>;
   references: Record<string, Reference>; macros: string; macroConfig: Record<string, string | [string, number]>;
   assets: { source: string; path: string; digest: string }[];
 }
+export interface ProjectEntry { id: string; title: string; subtitle?: string; author?: string; basePath: string; revision: string }
+export interface ProjectCatalog { schemaVersion: 1; title: string; projects: ProjectEntry[] }
 export type SolutionMode = 'none' | 'inline' | 'end';
 export interface PrintRequest { revision: string; chapterId: string; problemIds: string[]; includeDocuments: boolean; solutions: SolutionMode; comments: boolean; title?: string }
 export interface BookRequest { revision: string; kind: 'book'; solutions: SolutionMode; comments: boolean }

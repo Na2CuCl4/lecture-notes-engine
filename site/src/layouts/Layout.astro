@@ -1,6 +1,7 @@
 ---
 import { course, href, assetHref, safeJson, firstHeadings, readingPages } from '../lib/course';
 import '../styles/global.css';
+import SiteHeader from '../components/SiteHeader.astro';
 interface Props { title?: string; activeChapter?: string; activeDocument?: string; activeSet?: string; }
 const { title, activeChapter, activeDocument, activeSet } = Astro.props;
 const mathConfig = {
@@ -23,11 +24,7 @@ const mathConfig = {
   </head>
   <body>
     <a class="skip-link" href="#main-content">跳到正文</a>
-    <header class="topbar">
-      <button class="icon-button menu-toggle" type="button" aria-label="展开或收起目录" aria-controls="course-sidebar" aria-expanded="true"><span aria-hidden="true">☰</span></button>
-      <a class="topbar-brand" href={href()}>{course.title}</a>
-      <a class="download-link" href={assetHref('downloads/main.pdf')} download><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg><span>全文 PDF</span></a>
-    </header>
+    <SiteHeader />
     <button class="sidebar-scrim" aria-label="关闭目录" tabindex="-1"></button>
     <aside id="course-sidebar" class="sidebar" aria-label="课程目录">
       <button type="button" class="icon-button sidebar-close" aria-label="关闭目录">×</button>
@@ -47,7 +44,7 @@ const mathConfig = {
       </nav>
     </aside>
     <main id="main-content" class="main-content" tabindex="-1"><slot /></main>
-    <script id="course-client-config" type="application/json" set:html={safeJson({ revision: course.revision, basePath: course.basePath, siteUrl: course.siteUrl, readingPages, chapters: course.chapters.map(({ id, title }) => ({ id, title })) })}></script>
+    <script id="course-client-config" type="application/json" set:html={safeJson({ projectId: course.projectId || 'default', title: course.title, revision: course.revision, basePath: course.basePath, siteUrl: course.siteUrl, readingPages, chapters: course.chapters.map(({ id, title }) => ({ id, title })) })}></script>
     <script>
       import '../scripts/app';
     </script>

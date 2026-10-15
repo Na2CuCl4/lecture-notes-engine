@@ -1,0 +1,11 @@
+schemaVersion: 1
+title: 课程讲义
+projects:
+  - id: advanced-calculus-i
+    content: examples/calculus
+    siteUrl: https://www.xiazr20.top/xiazr20/advanced-calculus-i/
+  - id: calculus-demo
+    content: examples/calculus
+    title: 微积分 A(1) · 示例
+    siteUrl: http://localhost:3000/calculus-demo/
+# 两个入口复用同一份引擎验收样例，用于演示项目切换；不是旧课程整库迁移。

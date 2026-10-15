@@ -63,6 +63,23 @@ $$
   return { root, put, remove: () => fs.rm(root, { recursive: true, force: true }) };
 }
 
+test('content: project mounts use distinct links and revisions without editing course sources', async () => {
+  const f = await fixture();
+  try {
+    const original = await fs.readFile(path.join(f.root, 'course.yaml'), 'utf8');
+    const first = await buildCourse(f.root, { basePath: '/project1/', title: '项目一', siteUrl: 'https://example.test/project1/' });
+    const second = await buildCourse(f.root, { basePath: '/project2/', title: '项目二', siteUrl: 'https://example.test/project2/' });
+    assert.equal(first.title, '项目一'); assert.equal(second.title, '项目二');
+    assert.equal(first.references.squeeze.url, '/project1/problems/squeeze/');
+    assert.equal(second.references.squeeze.url, '/project2/problems/squeeze/');
+    assert.match(first.documents.review.body.html, /src="\/project1\/assets\/diagram.svg"/);
+    assert.match(second.documents.review.body.html, /href="\/project2\/problems\/squeeze\/#eq-bound"/);
+    assert.notEqual(first.revision, second.revision);
+    assert.equal(await fs.readFile(path.join(f.root, 'course.yaml'), 'utf8'), original);
+    await assert.rejects(buildCourse(f.root, { basePath: '/../' }), /basePath/);
+  } finally { await f.remove(); }
+});
+
 test('content: cross-file references, figures, equation numbers, parts and deterministic revisions', async () => {
   const f = await fixture();
   try {

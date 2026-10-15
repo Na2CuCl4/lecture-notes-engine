@@ -10,7 +10,7 @@
 | --- | --- | --- |
 | `web` | 静态阅读页面、打印 API、下载 | 只读 `/releases`，读写 `/state` |
 | `worker` | 从 SQLite 队列领取任务、用 XeLaTeX 编译 | 只读 `/releases`，读写 `/state` |
-| `builder` | 临时运行的内容校验、Astro 构建、全文 PDF 发布 | 只读 `/content`，读写 `/releases` 和 `/state` |
+| `builder` | 临时运行的多项目内容校验、Astro 构建、全文 PDF 发布 | 只读 `/projects.yaml` 及各内容目录，读写 `/releases` 和 `/state` |
 
 Compose 创建两个命名卷：`lecture-notes-engine_releases` 和 `lecture-notes-engine_state`。镜像预先设置 UID/GID 1000 的目录权限，第一次挂载时 Docker 会复制这些权限。容器以 `node` 用户运行，不需要对内容仓库执行 `chmod` 或 `chown`。
 
@@ -36,15 +36,15 @@ docker compose up -d --wait web worker
 docker compose ps
 ```
 
-默认使用 `examples/calculus`。访问 `http://127.0.0.1:3000/`；课程配置若设置了路径前缀，则使用其 `basePath` 下的入口。`http://127.0.0.1:3000/healthz` 始终独立于课程路径。
+默认读取 `projects.yaml`，两个项目共用 `examples/calculus` 验收样例。访问 `http://127.0.0.1:3000/` 查看全部项目，两个入口分别是 `/advanced-calculus-i/` 和 `/calculus-demo/`。这只是项目切换演示，没有迁移或更改两门正式课程。`http://127.0.0.1:3000/healthz` 始终独立于项目路径。
 
 `builder` 的默认命令等价于：
 
 ```sh
-npm run build -- --content /content --out /releases --book --local-worker
+npm run build -- --projects /projects.yaml --out /releases --book --local-worker
 ```
 
-它通过持久队列生成全文 PDF，成功后切换 `current.json`。首次启动时没有常驻 worker，`--local-worker` 会临时消费同一个队列；已有常驻 worker 时也遵守同一个全局并发限制。
+它依次构建各项目，通过持久队列生成全文 PDF，全部成功后原子更新 `/releases/projects.json`。首次启动时没有常驻 worker，`--local-worker` 会临时消费同一个队列；已有常驻 worker 时也遵守同一个全局并发限制。所有项目共享一个队列，不因项目增加而提高并行数。项目切换菜单和根目录主界面读取当前项目目录；不需要重新构建已发布项目来更新菜单。
 
 TeX 镜像首次构建需要下载 Debian 软件包，耗时和镜像体积明显高于纯网页镜像；后续内容更新不会重新安装这些依赖。镜像预装 Pandoc、XeLaTeX、ctex 和 Fandol 字体，运行时不下载字体和 TeX 包。
 
@@ -79,19 +79,51 @@ Linux/macOS：
 cp .env.example .env
 ```
 
-然后修改 `CONTENT_PATH`，例如 Windows：
+生产部署另建一个项目清单，例如 `projects.production.yaml`：
+
+```yaml
+schemaVersion: 1
+title: 我的课程讲义
+projects:
+  - id: advanced-calculus-i
+    content: /content-advanced
+    basePath: /advanced-calculus-i/
+    siteUrl: https://example.com/advanced-calculus-i/
+  - id: calculus-i
+    content: /content-calculus
+    basePath: /calculus-i/
+    siteUrl: https://example.com/calculus-i/
+```
+
+清单内的 `content` 是**构建器容器内路径**。新增 `compose.override.yaml`，把两个已迁移的内容库只读挂载进 builder：
+
+```yaml
+services:
+  builder:
+    volumes:
+      - type: bind
+        source: E:/Projects/Website/advanced-calculus-content
+        target: /content-advanced
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: E:/Projects/Website/calculus-content
+        target: /content-calculus
+        read_only: true
+        bind:
+          create_host_path: false
+```
+
+然后在 `.env` 中设置：
 
 ```dotenv
-CONTENT_PATH=E:/Projects/Website/advanced-calculus-i
+PROJECTS_PATH=./projects.production.yaml
 WEB_BIND=127.0.0.1
 WEB_PORT=3000
 ```
 
-Linux 示例：
-
-```dotenv
-CONTENT_PATH=/srv/lecture-content/advanced-calculus-i
-```
+Linux 部署把 `source` 换为 `/srv/lecture-content/...` 等宿主机绝对路径。默认样例挂载仍可保留，但只会构建清单实际引用的内容。
 
 只有按新格式迁移、通过内容校验的目录才能这样挂载；现有 LaTeX 仓库不能直接当成新内容库。挂载路径不存在会失败，不会悄悄创建空文件夹。
 
@@ -101,16 +133,26 @@ CONTENT_PATH=/srv/lecture-content/advanced-calculus-i
 docker compose run --rm builder
 ```
 
-构建成功前继续提供旧版本。每份网页、索引和 PDF 使用同一内容版本；已入队任务继续使用其原版本。无需重新构建镜像或重启 web。
+只更新一门课程时：
+
+```sh
+docker compose run --rm builder npm run build -- --projects /projects.yaml --project advanced-calculus-i --out /releases --book --local-worker
+```
+
+构建成功前继续提供旧版本；单项目更新不改变其他项目。每份网页、索引和 PDF 使用同一内容版本；已入队任务继续使用其原版本。无需重新构建镜像或重启 web。删除项目应修改清单后执行一次全量构建，不要手动编辑 `projects.json`。
 
 需要先构建再人工选择发布时间时：
 
 ```sh
-docker compose run --rm builder npm run build -- --content /content --out /releases --book --local-worker --no-publish
-docker compose run --rm builder npx tsx src/cli.ts publish REVISION
+docker compose run --rm builder npm run build -- --projects /projects.yaml --project advanced-calculus-i --out /releases --book --local-worker --no-publish
+docker compose run --rm builder npx tsx src/cli.ts publish REVISION --projects /projects.yaml --project advanced-calculus-i
 ```
 
-将 `REVISION` 替换为构建输出的真实版本号。回滚使用相同的 `publish` 命令选择仍在卷中的旧版本。不要手动编辑已生成的版本目录。
+将 `REVISION` 替换为构建输出的真实版本号。回滚使用相同的 `publish` 命令选择仍在卷中的旧版本；项目 ID 和路径必须匹配，不能把另一个项目的快照发布过来。不要手动编辑已生成的版本目录。`--no-publish` 不改 `projects.json` 或 `current.json`，PDF 的生成仍会走共享任务队列。
+
+项目路径或显示标题变更后重新构建，该配置参与版本哈希；即使两个项目复用同一内容目录，也拥有独立快照和资源 URL。全量发布会检测构建期间发生的其他发布，发现并发更新时保留现有目录并要求重试；单项目发布通过文件锁合并更新，避免互相覆盖。进程异常退出留下 `.projects.lock` 时，先确认没有正在发布的 builder，再删除锁文件重试。
+
+原来的单项目模式仍受支持：设置 `CONTENT_PATH`，显式传 `--content /content`，并使用独立的 `--out` 发布目录。单项目模式使用 `current.json`，已经启用多项目的目录拒绝单项目覆盖。未指定 `--content` 时，CLI 优先读取默认 `projects.yaml`；两种参数不能混用。
 
 ## 资源与队列
 
@@ -145,10 +187,10 @@ docker compose run --rm builder npx tsx src/cli.ts concurrency 2
 
 ## 反向代理与原站点路径
 
-课程配置填写 `/xiazr20/advanced-calculus-i/` 等 `basePath`。代理保留该路径，不剥离前缀。Nginx 示例：
+项目清单可以填写 `/xiazr20/advanced-calculus-i/` 等 `basePath`。代理保留该路径，不剥离前缀。若独立域名的根目录也用于项目主界面，建议代理整个站点；包含公共项目目录与打印接口的请求也应转发。Nginx 示例：
 
 ```nginx
-location ^~ /xiazr20/advanced-calculus-i/ {
+location / {
     proxy_pass http://127.0.0.1:3000;
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-For $remote_addr;
@@ -158,13 +200,13 @@ location ^~ /xiazr20/advanced-calculus-i/ {
 
 Docker 默认只绑定宿主机 `127.0.0.1`，由现有 HTTPS 入口代理。`TRUST_PROXY` 默认 `false`；需要按真实访客地址限流时，将其设为实际反向代理连接的明确 IP/CIDR，而非无条件信任互联网上传入的 `X-Forwarded-For`。容器看到的代理地址可能是 Docker 网桥地址，须结合访问日志确认。
 
-保留 `calculus-i` 的原有服务。新课程切换到新入口前，单独检查站点导航、旧链接、搜索索引和完整 PDF 地址。课程的 `main.html` 兼容入口由内容构建提供。
+若与现有个人网站共享域名，保留原站点入口，只代理各项目 `basePath` 以及公共 `/_engine/` 路径；后者提供项目列表与跨项目打印状态、下载。可通过独立子域名提供项目主界面，避免占用个人网站首页。保留 `calculus-i` 的原有服务，未迁移前不要让新项目使用它的公开路径。新课程切换前检查站点导航、旧链接、搜索索引和完整 PDF 地址。课程的 `main.html` 兼容入口由内容构建提供。
 
 ## CI 与版本固定
 
 引擎仓库的 `.github/workflows/ci.yaml` 执行类型检查、测试、Docker 构建和样例端到端启动，不推送镜像、不部署站点。
 
-`scripts/content-workflow.example.yaml` 是供以后复制到**内容仓库**的发布示例，默认不会执行。示例要求已准备好的自托管 runner、固定版本的引擎 checkout 和同一个 Compose 项目；运行时只更新课程内容。`ENGINE_DIRECTORY` 由 GitHub 仓库变量提供，指向服务器已有的引擎目录。
+`scripts/content-workflow.example.yaml` 是供以后复制到**内容仓库**的发布示例，默认不会执行。示例要求已准备好的自托管 runner、固定版本的引擎 checkout 和同一个 Compose 项目；运行时只更新指定项目。`ENGINE_DIRECTORY` 仓库变量指向服务器已有的引擎目录，`LECTURE_PROJECT_ID` 指定清单中的项目 ID。该项目的只读内容挂载须指向此仓库稳定的 runner checkout（即 `github.workspace`），清单使用容器内路径；每个内容仓库使用自己的挂载。不要把未完成同步的工作目录发布成内容快照。
 
 生产环境应把引擎固定到审核过的 Git commit/tag，并记录镜像 digest。`ENGINE_VERSION` 仅决定本地镜像 tag，不会替你切换源码或拉取对应代码。更新引擎时先切到所需代码版本，再构建、跑验证，最后重建服务：
 

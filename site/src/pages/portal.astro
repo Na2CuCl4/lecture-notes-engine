@@ -1,0 +1,25 @@
+---
+import SiteHeader from '../components/SiteHeader.astro';
+import '../styles/global.css';
+---
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#173d36" />
+    <title>课程项目</title>
+  </head>
+  <body class="portal-body">
+    <a class="skip-link" href="#main-content">跳到正文</a>
+    <SiteHeader portal />
+    <main id="main-content" class="portal-content" tabindex="-1">
+      <h1 data-portal-title>课程项目</h1>
+      <p class="portal-status" data-project-loading>正在加载项目…</p>
+      <div class="portal-status" data-project-error hidden><p>暂时无法加载项目，请检查连接后重试。</p><button type="button" class="button button-subtle" data-project-retry>重试</button></div>
+      <p class="portal-status" data-project-empty hidden>暂时没有可查看的项目。</p>
+      <div class="project-grid" data-project-list></div>
+      <noscript><p class="portal-status">请启用 JavaScript 以加载项目列表。</p></noscript>
+    </main>
+  </body>
+</html>

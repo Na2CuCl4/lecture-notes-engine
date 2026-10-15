@@ -75,7 +75,7 @@ services:
     pids_limit: 128
 
   # One-shot local preview / CI build. It writes immutable version directories,
-  # then switches current.json only after the requested build has succeeded.
+  # then switches projects.json only after all selected builds have succeeded.
   builder:
     <<: *runtime
     profiles: [tools]
@@ -85,7 +85,7 @@ services:
       target: compiler
       args:
         APT_MIRROR: ${APT_MIRROR:-deb.debian.org}
-    command: ["npm", "run", "build", "--", "--content", "/content", "--out", "/releases", "--book", "--local-worker"]
+    command: ["npm", "run", "build", "--", "--projects", "/projects.yaml", "--out", "/releases", "--book", "--local-worker"]
     environment:
       <<: *environment
       CONTENT_DIR: /content
@@ -93,6 +93,20 @@ services:
       # renames generated assets into the output tree and cannot cross a mount.
       ASTRO_CACHE_DIR: /releases/.astro-cache
     volumes:
+      - type: bind
+        source: ${PROJECTS_PATH:-./projects.yaml}
+        target: /projects.yaml
+        read_only: true
+        bind:
+          create_host_path: false
+      # The bundled manifest resolves examples/calculus relative to /projects.yaml.
+      - type: bind
+        source: ./examples
+        target: /examples
+        read_only: true
+        bind:
+          create_host_path: false
+      # Retained for explicit legacy --content /content builds.
       - type: bind
         source: ${CONTENT_PATH:-./examples/calculus}
         target: /content

@@ -8,9 +8,9 @@ const { chapterId, includeDocuments = false } = Astro.props;
   <form class="print-options">
     <fieldset><legend>解答位置</legend><div class="radio-options"><label><input type="radio" name="print-solutions" value="none" checked /><span>仅题目</span></label><label><input type="radio" name="print-solutions" value="inline" /><span>题后解答</span></label><label><input type="radio" name="print-solutions" value="end" /><span>文末解答</span></label></div></fieldset>
     <div class="print-checkboxes"><label><input type="checkbox" name="print-comments" /> 包含评注与拓展</label>{chapterId && <label><input type="checkbox" name="print-documents" checked={includeDocuments} /> 包含本章知识点文档</label>}</div>
-    <p class="print-note">PDF 按章节生成；包含多个章节时，会分别提供下载。你可以继续阅读，稍后回到此处查看结果。</p>
+    <p class="print-note">PDF 按章节生成；包含多个章节时，会分别提供下载。提交后可继续阅读，在右上角“打印状态”查看和下载。</p>
     <button class="button button-primary" type="submit" data-print-submit>生成 PDF</button>
   </form>
   <div class="print-error" role="alert" hidden></div>
-  <div class="print-jobs" aria-live="polite"></div>
+  <p class="print-submitted" role="status" hidden></p>
 </dialog>

@@ -86,7 +86,7 @@ function walk(nodes: any, action: (node: PandocNode) => void) {
 interface PendingBody { body: Body; markdown: string; ownerId: string; chapterId?: string; url: string }
 
 /** Parse and validate one immutable course snapshot. No writes or network requests. */
-export async function buildCourse(contentDir: string): Promise<Course> {
+export async function buildCourse(contentDir: string, overrides: Partial<Pick<Course, 'basePath' | 'siteUrl' | 'title'>> = {}): Promise<Course> {
   const root = path.resolve(contentDir);
   const originals = new Map<string, Buffer>();
   const registry = new Map<string, string>();
@@ -152,7 +152,9 @@ export async function buildCourse(contentDir: string): Promise<Course> {
   }
   async function readItem(relative: string) { return frontmatter(await read(relative), relative); }
 
-  const config = metadata(configSchema, yaml(await read('course.yaml'), 'course.yaml'), 'course.yaml');
+  const sourceConfig = metadata(configSchema, yaml(await read('course.yaml'), 'course.yaml'), 'course.yaml');
+  const deployment = metadata(configSchema.pick({ basePath: true, siteUrl: true, title: true }).partial().strict(), overrides, '项目配置');
+  const config = metadata(configSchema, { ...sourceConfig, ...Object.fromEntries(Object.entries(deployment).filter(([, value]) => value !== undefined)) }, '项目配置');
   if (!/^\/(?:[a-zA-Z0-9_-]+\/)*$/.test(config.basePath)) fail('course.yaml', 'basePath 必须是 / 或 /分段/ 形式，不含查询、空格或 ..');
   if (!/^https?:\/\//.test(config.siteUrl)) fail('course.yaml', 'siteUrl 只支持 http(s)');
   unique(config.chapters, 'course.yaml', 'chapters');
@@ -459,6 +461,9 @@ export async function buildCourse(contentDir: string): Promise<Course> {
 
   // Re-read the exact snapshot before publishing: never mix concurrent author edits.
   const hash = createHash('sha256');
+  // Mounting the same source at another project path changes links and rendered
+  // assets, so the effective deployment settings are part of its revision.
+  hash.update(JSON.stringify({ basePath: config.basePath, siteUrl: config.siteUrl, title: config.title })).update('\0');
   for (const [source, buffer] of [...originals.entries()].sort(([a], [b]) => a.localeCompare(b))) {
     const current = await fs.readFile(await safePath(source));
     if (!current.equals(buffer)) fail(source, '构建过程中内容发生变化，请重试');

@@ -14,7 +14,7 @@ docker compose run --rm builder
 docker compose up -d web worker
 ```
 
-打开 <http://localhost:3000/>。首次 builder 命令生成示例网页和全文 PDF，成功后发布；web 和 worker 读取相同的只读内容快照。依赖都随镜像安装，任务执行时不下载 TeX 包或字体。
+打开 <http://localhost:3000/> 查看项目主界面，进入 `/advanced-calculus-i/` 或 `/calculus-demo/`。两个默认项目复用同一份验收样例，用来演示项目切换，并不代表已迁移两门正式课程。首次 builder 命令生成全部项目的网页和全文 PDF，全部成功后统一发布；web 和 worker 读取相同的只读内容快照。
 
 正式课程的挂载、子路径代理、资源限制、CI 和回滚步骤见 [部署说明](docs/deployment.md)。
 
@@ -28,13 +28,35 @@ npm run content:check
 npm run dev
 ```
 
-默认读取 `examples/calculus/`，预览地址 <http://127.0.0.1:3000/>。更换内容目录：
+默认读取引擎根目录的 `projects.yaml`，预览地址 <http://127.0.0.1:3000/>。每个项目拥有独立 URL、阅读进度、引用和全文 PDF，共用一个打印队列及编译并发限制。
 
-```sh
-npm run dev -- --content /path/to/course --port 3000
+```yaml
+schemaVersion: 1
+title: 课程讲义
+projects:
+  - id: advanced-calculus-i
+    content: ../advanced-calculus-content
+  - id: calculus-i
+    content: ../calculus-content
+    title: 微积分 A(1)
+    basePath: /calculus-i/
+    siteUrl: https://example.com/calculus-i/
 ```
 
-`dev` 启动网页、编译 worker 和文件监听。保存内容后重新构建；失败时保留上一版，终端显示文件及原因。构建完成后刷新页面查看新版本。浏览器预览使用与发布相同的公式、宏、引用和页面，不依赖编辑器专有插件。
+`content` 相对项目清单文件解析，也可填写绝对路径；必须是已迁移的 Markdown 内容目录。`basePath` 默认 `/<id>/`，不能占用 `/`、API 等保留路径，也不能与另一项目路径重叠。`title`、`siteUrl` 可覆盖课程配置，源文件不会被改写。项目 ID 应保持稳定。
+
+```sh
+npm run dev -- --projects projects.yaml
+npm run check -- --projects projects.yaml --project advanced-calculus-i
+```
+
+`--project` 只构建或校验选中的项目，保留其他项目的已发布版本。项目清单变更后重启开发服务；内容修改会自动重建受影响的项目。仍支持显式单项目模式，建议使用独立输出目录：
+
+```sh
+npm run dev -- --content /path/to/course --out dist/single-releases --port 3000
+```
+
+`dev` 启动网页、一个共享编译 worker 和文件监听。保存内容后重新构建；失败时保留上一版，终端显示文件及原因。构建完成后刷新页面查看新版本。`--content` 与 `--projects`/`--project` 不能混用，已有多项目目录也不会被单项目发布覆盖。
 
 ## 内容模型
 
@@ -67,19 +89,21 @@ assets/figure.png
 ## 发布与打印
 
 ```sh
-# 只校验，不修改内容
-npm run content:check -- --content /path/to/course
+# 只校验所有项目，不修改内容
+npm run check -- --projects projects.yaml
 
 # 构建网页，使用本地 worker 经共享队列生成全文，再切换发布版本
-npm run build -- --content /path/to/course --book --local-worker
+npm run build -- --projects projects.yaml --book --local-worker
 
 # 有常驻 worker 的 CI 不需要 --local-worker
-npm run build -- --content /path/to/course --book
+npm run build -- --projects projects.yaml --project advanced-calculus-i --book
 
 # 构建但不切换，验收后再发布
-npm run build -- --content /path/to/course --no-publish
-npm run pdf -- --book --revision REVISION
-npm exec tsx src/cli.ts publish REVISION
+npm run build -- --projects projects.yaml --project advanced-calculus-i --book --local-worker --no-publish
+npm exec -- tsx src/cli.ts publish REVISION --project advanced-calculus-i
+
+# 为已发布项目重新生成全文 PDF
+npm run pdf -- --book --project advanced-calculus-i --local-worker
 ```
 
 网页与 PDF 基于同一套 Pandoc 内容树。公共数学宏统一维护；不支持的命令、重复 ID、失效引用、缺失资源等会阻止发布。章节打印支持仅题目、题后解答、文末解答，以及独立的评语开关。跨章题单分别生成各章 PDF。
@@ -87,6 +111,10 @@ npm exec tsx src/cli.ts publish REVISION
 全文 PDF 按章节输出文档及“所有习题”，每题只出现一次，不输出各习题集的说明或索引。题目使用简单的编号环境，省略难度、标签和来源；解答标题采用“解（方法名）”。定理、定义、命题、引理、推论、注等语义块在网页和 PDF 中显示一致的类型、编号及可选标题。章外引用保留目标名称和网站链接。
 
 任务通过 SQLite 持久化。默认全局只执行一个编译任务，包括 CI 全文构建；重复请求复用任务或 PDF。每个任务固定内容版本、题目顺序及排版选项，发布新内容不会改变已排队任务。公开接口不能提交全文任务、任意 Markdown、TeX 或文件路径。
+
+提交打印后可继续阅读，右上角“打印状态”提供本浏览器提交的任务状态和 PDF 下载。刷新或切换项目后仍可查看；任务记录保存在当前浏览器，清除浏览器存储会清除这份本地记录。任务完成后的 PDF 仍受服务器缓存保留期限约束。
+
+全量构建只在所有项目成功后原子更新 `releases/projects.json`；单项目发布只替换其对应条目。`--no-publish` 不改变任何当前发布指针。独立项目并发发布采用文件锁，完整目录发布还会检查构建期间是否有其他发布，避免覆盖新版本。网站和任务使用固定快照，不会因项目切换混用内容。
 
 ## 验证
 

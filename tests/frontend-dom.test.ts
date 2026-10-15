@@ -32,9 +32,10 @@ function fixture(options: { query?: string; progress?: readingState.ReadingProgr
   const cleared: string[][] = [];
   let shared = '';
   const printRequests: any[] = [];
+  const registeredJobs: any[] = [];
   const app = window as any;
   app.exports = {};
-  app.require = (name: string) => name === './list-state' ? listState : name === './reading-state' ? readingState : assert.fail(`Unexpected module ${name}`);
+  app.require = (name: string) => name === './list-state' ? listState : name === './reading-state' ? readingState : name === './global-ui' ? { registerPrintJob: (result: unknown, fallback: unknown) => { registeredJobs.push({ result, fallback }); return true; } } : assert.fail(`Unexpected module ${name}`);
   app.MathJax = { startup: { promise: Promise.resolve() }, typesetPromise: async () => {}, typesetClear: (elements: Element[]) => cleared.push(elements.map(element => element.id)) };
   app.IntersectionObserver = class { observe() {} unobserve() {} disconnect() {} };
   Object.defineProperty(window.document, 'readyState', { value: 'complete' });
@@ -53,7 +54,7 @@ function fixture(options: { query?: string; progress?: readingState.ReadingProgr
     const id = url.match(/\/fragments\/problems\/(p\d+)\/index.html$/)?.[1];
     return id ? new Response(card(id)) : new Response('missing', { status: 404 });
   };
-  const config = { revision, basePath: '/course/', siteUrl: 'https://notes.example', chapters: [{ id: 'one', title: '第一章' }], readingPages: [
+  const config = { projectId: 'course', title: '测试课程', revision, basePath: '/course/', siteUrl: 'https://notes.example', chapters: [{ id: 'one', title: '第一章' }], readingPages: [
     { path: '/course/chapters/one/', anchors: ['main-content', 'exercises', ...problems.flatMap(problem => problem.anchors)] },
     ...problems.map(problem => ({ path: `/course/problems/${problem.id}/`, anchors: problem.anchors })),
   ] };
@@ -63,7 +64,7 @@ function fixture(options: { query?: string; progress?: readingState.ReadingProgr
     <form class="filter-panel"><input name="search"><select name="tag"><option value=""></option><option>first</option><option>second</option></select><input name="source"><input name="difficulty"><input name="solutions"><button type="button" class="reset-filters">reset</button></form>
     <span data-result-count></span><span data-sample-label></span><button data-clear-sample></button><button data-print-open></button><button data-share></button><button data-random></button><button data-toggle-solutions></button><input id="random-count" type="number" min="1" max="25" value="3">
     <p data-list-message></p><div class="page-load-error" hidden><button data-retry-page>retry</button></div><div class="problem-list">${problems.slice(0,10).map(problem => card(problem.id)).join('')}</div><nav data-pagination></nav><div class="empty-state" hidden></div>
-    <dialog class="print-dialog"><p class="print-summary"></p><button data-print-close></button><form class="print-options"><input name="print-solutions" value="none"><button type="submit" data-print-submit></button></form><div class="print-error" hidden></div><div class="print-jobs"></div></dialog>
+    <dialog class="print-dialog"><p class="print-summary"></p><button data-print-close></button><form class="print-options"><input name="print-solutions" value="none"><button type="submit" data-print-submit></button></form><div class="print-error" hidden></div><p class="print-submitted" hidden></p></dialog>
     <script data-exercise-config type="application/json">${json(list)}</script></section></div></main><script id="course-client-config" type="application/json">${json(config)}</script>`;
   if (options.progress) {
     window.localStorage.setItem(key, JSON.stringify(options.progress));
@@ -72,7 +73,7 @@ function fixture(options: { query?: string; progress?: readingState.ReadingProgr
   vm.runInContext(script, vm.createContext(window), { filename: 'app.ts' });
   const $ = (selector: string) => window.document.querySelector(selector)! as any;
   const ids = () => Array.from(window.document.querySelectorAll('[data-problem-id]')).map(element => element.getAttribute('data-problem-id'));
-  return { window, $, ids, requests, cleared, shared: () => shared, printRequests, close: () => window.happyDOM.close() };
+  return { window, $, ids, requests, cleared, shared: () => shared, printRequests, registeredJobs, close: () => window.happyDOM.close() };
 }
 
 test('DOM pagination mounts 10/10/5 cards, retains initial groups, and prints/shares all pages', async () => {
@@ -99,6 +100,10 @@ test('DOM pagination mounts 10/10/5 cards, retains initial groups, and prints/sh
     app.$('.print-options').dispatchEvent(new app.window.Event('submit', { bubbles: true, cancelable: true }));
     await until(() => app.printRequests.length > 0, 'printing should submit');
     assert.deepEqual(app.printRequests[0].problemIds, problems.map(problem => problem.id));
+    await until(() => app.registeredJobs.length === 1, 'the complete print task is recorded in the global history');
+    assert.equal(app.registeredJobs[0].fallback.project.id, 'course');
+    assert.equal(app.registeredJobs[0].fallback.project.title, '测试课程');
+    assert.match(app.$('.print-submitted').textContent, /右上角“打印状态”/);
     app.$('[name="tag"]').value = 'first';
     app.$('[name="tag"]').dispatchEvent(new app.window.Event('input', { bubbles: true }));
     await until(() => app.ids()[0] === 'p1', 'filter resets to first page');

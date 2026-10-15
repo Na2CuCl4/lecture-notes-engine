@@ -26,13 +26,18 @@ jobs:
         env:
           # Configure this repository variable with the server's engine path.
           ENGINE_DIRECTORY: ${{ vars.ENGINE_DIRECTORY }}
-          CONTENT_DIRECTORY: ${{ github.workspace }}
+          # The server projects manifest must name this ID and a stable source mount.
+          PROJECT_ID: ${{ vars.LECTURE_PROJECT_ID }}
         shell: bash
         run: |
           set -euo pipefail
           test -n "$ENGINE_DIRECTORY"
+          test -n "$PROJECT_ID"
           cd "$ENGINE_DIRECTORY"
-          CONTENT_PATH="$CONTENT_DIRECTORY" docker compose run --rm builder \
-            npm run build -- --content /content --out /releases --book --local-worker
+          # Configure the project's read-only bind mount to this content repository's
+          # stable checkout on the server. Do not expose the container's engine checkout
+          # as a content source, and do not mutate another project's checkout here.
+          docker compose run --rm builder \
+            npm run build -- --projects /projects.yaml --project "$PROJECT_ID" --out /releases --book --local-worker
       - name: Verify running service
         run: curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/healthz

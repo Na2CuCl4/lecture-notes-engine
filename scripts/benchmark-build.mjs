@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 const started = performance.now();
 const args = process.argv.slice(2);
 const child = spawn(process.execPath, ['--import', 'tsx', 'src/cli.ts', 'build',
-  ...(args.length ? args : ['--content', '/content', '--out', '/releases', '--book', '--local-worker'])],
+  ...(args.length ? args : ['--projects', '/projects.yaml', '--out', '/releases', '--book', '--local-worker'])],
 { stdio: 'inherit', windowsHide: true });
 child.once('error', error => { console.error(error.message); process.exitCode = 1; });
 child.once('exit', async (code, signal) => {

@@ -1,9 +1,10 @@
 import { filterProblems, restoreSelection, groupByChapter, randomSample, paginateProblems, pageForAnchor, paginationNumbers, PAGE_SIZE, type SearchProblem, type Filters } from './list-state';
 import { readingHref, restoreReadingProgress, type ReadingPage, type ReadingProgress } from './reading-state';
-import type { PrintJob, PrintRequest } from '../../../src/types';
+import type { PrintRequest } from '../../../src/types';
+import { registerPrintJob } from './global-ui';
 
 declare global { interface Window { MathJax?: { startup?: { promise?: Promise<void> }; typesetPromise?: (elements: Element[]) => Promise<void>; typesetClear?: (elements: Element[]) => void } } }
-interface ClientConfig { revision: string; basePath: string; siteUrl: string; readingPages: ReadingPage[]; chapters: { id: string; title: string }[] }
+interface ClientConfig { projectId?: string; title?: string; revision: string; basePath: string; siteUrl: string; readingPages: ReadingPage[]; chapters: { id: string; title: string }[] }
 interface ListConfig { title: string; chapterId?: string; includeDocuments: boolean; revision: string; problems: SearchProblem[]; groups: { title: string; problems: string[] }[]; fragmentBase: string; showChapter: boolean; standalone: boolean }
 const client: ClientConfig = JSON.parse(document.querySelector('#course-client-config')!.textContent!);
 const base = client.basePath.replace(/\/+$/, '');
@@ -474,13 +475,9 @@ function setupPrinting(section: HTMLElement, config: ListConfig, getIds: () => s
   const form = $<HTMLFormElement>('.print-options', dialog);
   const submit = $<HTMLButtonElement>('[data-print-submit]', dialog);
   const errors = $('.print-error', dialog);
-  const jobsElement = $('.print-jobs', dialog);
-  const jobs = new Map<string, { job: PrintJob; title: string; downloadUrl?: string; failures: number }>();
-  let pollTimer: ReturnType<typeof setTimeout> | undefined;
+  const submitted = $('.print-submitted', dialog);
   let submitting = false;
   const chapterTitle = (id: string) => client.chapters.find(chapter => chapter.id === id)?.title || '章节';
-  const storageKey = `lecture-notes-jobs:${base}:${client.revision}`;
-  function persist() { try { sessionStorage.setItem(storageKey, JSON.stringify([...jobs.values()].slice(-20))); } catch { /* Private browsing or quota exhaustion should not prevent printing. */ } }
   function error(text: string) { errors.hidden = false; errors.textContent = text; }
   async function responseJson(response: Response) {
     if (!response.ok) {
@@ -488,52 +485,10 @@ function setupPrinting(section: HTMLElement, config: ListConfig, getIds: () => s
       if (response.status === 429) throw new Error('当前提交较多，请稍后再试。');
       if (response.status === 404) throw new Error('打印服务暂不可用。你可以先下载全文 PDF，或稍后再试。');
       if (response.status === 409) throw new Error('内容版本已更新，请刷新页面后重新生成。');
-      throw new Error(body.message || 'PDF 生成请求未能完成，请稍后重试。');
+      throw new Error(body.message || body.error || 'PDF 生成请求未能完成，请稍后重试。');
     }
     return response.json();
   }
-  function renderJobs() {
-    jobsElement.replaceChildren();
-    for (const entry of jobs.values()) {
-      const row = document.createElement('div'); row.className = 'print-job';
-      const text = document.createElement('div'); const heading = document.createElement('h3'); heading.textContent = entry.title; const state = document.createElement('p');
-      if (entry.job.state === 'queued') state.textContent = entry.job.position && entry.job.position > 1 ? `正在排队，前方还有 ${entry.job.position - 1} 个任务` : '正在排队，稍后开始生成';
-      else if (entry.job.state === 'running') state.textContent = '正在排版，请稍候';
-      else if (entry.job.state === 'succeeded') state.textContent = 'PDF 已准备好';
-      else state.textContent = '生成失败，请稍后重试或联系课程维护者。';
-      if (entry.failures >= 3 && !['succeeded', 'failed'].includes(entry.job.state)) state.textContent = '连接暂时中断，正在尝试恢复任务状态';
-      text.append(heading, state); row.append(text);
-      if (entry.job.state === 'succeeded') {
-        const link = document.createElement('a'); link.className = 'button button-subtle'; link.textContent = '下载 PDF';
-        const expected = api(`jobs/${encodeURIComponent(entry.job.id)}/pdf`);
-        // API-provided URLs are constrained to this site's own download endpoint.
-        const provided = entry.downloadUrl ? new URL(entry.downloadUrl, location.origin) : null;
-        link.href = provided?.origin === location.origin && provided.pathname.startsWith(`${base}/api/jobs/`) ? provided.href : expected;
-        link.setAttribute('download', ''); row.append(link);
-      }
-      jobsElement.append(row);
-    }
-  }
-  function schedulePoll() { if (pollTimer) return; if ([...jobs.values()].some(entry => !['succeeded', 'failed'].includes(entry.job.state))) pollTimer = setTimeout(poll, 2500); }
-  async function poll() {
-    pollTimer = undefined;
-    const pending = [...jobs.values()].filter(entry => !['succeeded', 'failed'].includes(entry.job.state));
-    await Promise.allSettled(pending.map(async entry => {
-      try {
-        const response = await fetch(api(`jobs/${encodeURIComponent(entry.job.id)}`), { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(20000) });
-        if (response.status === 404) { entry.job.state = 'failed'; return; }
-        const data = await responseJson(response);
-        entry.job = data.job; entry.downloadUrl = data.downloadUrl; entry.failures = 0;
-      } catch { entry.failures++; }
-    }));
-    renderJobs(); persist();
-    if ([...jobs.values()].some(entry => !['succeeded', 'failed'].includes(entry.job.state))) pollTimer = setTimeout(poll, pending.some(entry => entry.failures >= 3) ? 15000 : 3000);
-  }
-  try {
-    const saved = JSON.parse(sessionStorage.getItem(storageKey) || '[]');
-    for (const entry of saved) if (entry?.job?.id && entry?.job?.request?.revision === client.revision) jobs.set(entry.job.id, { ...entry, failures: 0 });
-    renderJobs(); schedulePoll();
-  } catch { /* A missing or malformed cache does not affect the print queue. */ }
   $('[data-print-open]', section).addEventListener('click', () => {
     const groups = groupByChapter(getIds(), config.problems);
     $('.print-summary', dialog).textContent = `当前题单包含全部页面的 ${getIds().length} 道习题${groups.size > 1 ? `，分属 ${groups.size} 个章节` : ''}，按照题单中的题目顺序排版。`;
@@ -547,16 +502,23 @@ function setupPrinting(section: HTMLElement, config: ListConfig, getIds: () => s
     const groups = groupByChapter(getIds(), config.problems);
     const data = new FormData(form);
     const solutions = String(data.get('print-solutions') || 'none') as PrintRequest['solutions'];
-    errors.hidden = true; submitting = true; submit.disabled = true; submit.textContent = '正在提交…';
+    errors.hidden = true; if (submitted) submitted.hidden = true; submitting = true; submit.disabled = true; submit.textContent = '正在提交…';
+    let submittedCount = 0;
     try {
       for (const [chapterId, problemIds] of groups) {
         const request: PrintRequest = { revision: client.revision, chapterId, problemIds, includeDocuments: data.has('print-documents'), solutions, comments: data.has('print-comments'), title: config.title === '所有习题' ? chapterTitle(chapterId) : config.title };
         const response = await fetch(api('print'), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request), signal: AbortSignal.timeout(20000) });
         const result = await responseJson(response);
-        jobs.set(result.job.id, { job: result.job, title: chapterTitle(chapterId), downloadUrl: result.downloadUrl, failures: 0 });
-        renderJobs(); persist(); schedulePoll();
+        const title = groups.size > 1 ? `${request.title} · ${chapterTitle(chapterId)}` : request.title || chapterTitle(chapterId);
+        const registered = registerPrintJob(result, { title, project: { id: client.projectId || 'default', title: client.title || '课程', basePath: client.basePath || '/' } });
+        if (!registered) throw new Error('打印服务返回的任务状态无效，请稍后重试。');
+        submittedCount++;
       }
+      if (submitted) { submitted.hidden = false; submitted.textContent = '任务已提交，可关闭此面板继续阅读。右上角“打印状态”可查看进度和下载 PDF。'; }
     } catch (cause) { error(cause instanceof Error && cause.name === 'TimeoutError' ? '提交耗时较长，请稍后重试；相同题单会复用已提交的任务。' : cause instanceof TypeError ? '暂时无法连接打印服务，请检查网络后重试。' : cause instanceof Error ? cause.message : '打印任务提交失败，请稍后重试。'); }
-    finally { submitting = false; submit.disabled = false; submit.textContent = '生成 PDF'; }
+    finally {
+      if (submitted && submittedCount > 0 && !errors.hidden) { submitted.hidden = false; submitted.textContent = `已有 ${submittedCount} 个任务成功提交，可在右上角“打印状态”查看。重新提交会复用相同任务。`; }
+      submitting = false; submit.disabled = false; submit.textContent = '生成 PDF';
+    }
   });
 }
