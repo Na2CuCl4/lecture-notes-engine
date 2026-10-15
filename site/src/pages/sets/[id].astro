@@ -9,7 +9,7 @@ const problemChapters = [...new Set(set.problems.map(id => course.problems[id].c
 ---
 <Layout title={set.title} activeChapter={chapter?.id} activeSet={set.id}>
   <div class="page-container">
-    <nav class="breadcrumbs" aria-label="当前位置"><a href={href()}>课程导览</a>{chapter && <><span aria-hidden="true">/</span><a href={href(`chapters/${chapter.id}/`)}>第 {chapter.number} 章 {chapter.title}</a></>}<span aria-hidden="true">/</span><span aria-current="page">习题集</span></nav>
+    <nav class="breadcrumbs" aria-label="当前位置">{chapter && <><a href={href(`chapters/${chapter.id}/`)}>第 {chapter.number} 章 {chapter.title}</a><span aria-hidden="true">/</span></>}<span aria-current="page">习题集</span></nav>
     <header class="page-heading"><h1>{set.title}</h1><div class="prose chapter-introduction" data-math set:html={set.body.html}></div></header>
     <ExerciseList problems={set.problems.map(id => course.problems[id])} chapterId={problemChapters.length === 1 ? problemChapters[0] : undefined} title="习题" printTitle={set.title} showChapter={problemChapters.length > 1} showHeading={false} groups={set.groups} />
   </div>

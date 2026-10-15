@@ -88,6 +88,88 @@ test('content: cross-file references, figures, equation numbers, parts and deter
   } finally { await f.remove(); }
 });
 
+test('content: semantic headings share chapter numbers in declared content order', async () => {
+  const f = await fixture();
+  try {
+    await f.put('chapters/limits.md', '---\nid: limits\ntitle: 极限\ndocuments: [z-review, review]\nproblems: [squeeze]\nsets: [tutorial]\n---\n本章研究极限。\n');
+    // The declared order deliberately differs from the lexical filename order.
+    await f.put('documents/z-review.md', '---\nid: z-review\ntitle: 先读这篇\n---\n::: {.definition #first-definition title="数列"}\n第一条定义。\n:::\n');
+    const kinds = ['theorem', 'definition', 'proposition', 'lemma', 'corollary', 'remark', 'note', 'example', 'exercise', 'warning'];
+    const labels = ['定理', '定义', '命题', '引理', '推论', '注', '注', '例', '练习', '警示'];
+    const original = await fs.readFile(path.join(f.root, 'documents/review.md'), 'utf8');
+    await f.put('documents/review.md', original + '\n' + kinds.map(kind => `::: {.${kind} #block-${kind} title="${kind} 标题"}\n${kind} 的正文。\n:::\n`).join('\n')
+      + '\n::: {.proof #block-proof title="用定义"}\n证明内容。\n:::\n\n参见 [自动文字](ref:block-theorem) 和 [自动文字](ref:block-proof)。\n');
+    await f.put('problems/squeeze/solutions/direct.md', '---\nid: squeeze-direct\ntitle: 用夹逼准则\n---\n::: {.lemma #solution-lemma}\n本题解答中的引理。\n:::\n');
+    await f.put('problems/continuous/index.md', '---\nid: continuous\ntitle: 连续函数\n---\n::: {.theorem #second-chapter-theorem}\n第二章的定理。\n:::\n');
+    const setText = await fs.readFile(path.join(f.root, 'sets/tutorial.md'), 'utf8');
+    await f.put('sets/tutorial.md', setText + '\n::: {.theorem #shared-set-theorem}\n题集说明中的定理。\n:::\n');
+
+    const course = await buildCourse(f.root);
+    assert.equal(course.references['first-definition'].label, '定义 1.1');
+    for (const [index, kind] of kinds.entries()) {
+      const label = `${labels[index]} 1.${index + 2}`;
+      const ref = course.references[`block-${kind}`];
+      assert.equal(ref.kind, 'semantic');
+      assert.equal(ref.label, label);
+      assert.equal(ref.title, `${kind} 标题`);
+      assert.equal(ref.url, `/course/documents/review/#block-${kind}`);
+      assert.ok(course.documents.review.body.html.includes(`${label}（${kind} 标题）`));
+    }
+    assert.equal(course.references['block-proof'].label, '证明（用定义）');
+    assert.equal(course.references['solution-lemma'].label, '引理 1.12');
+    assert.equal(course.references['shared-set-theorem'].label, '定理 1.14');
+    assert.equal(course.references['second-chapter-theorem'].label, '定理 2.1');
+    assert.match(course.documents.review.body.html, /href="\/course\/documents\/review\/#block-theorem">定理 1\.2<\/a>/);
+    assert.match(course.documents.review.body.html, /class="semantic-title"/);
+    assert.match(course.problems.continuous.body.html, /<strong>定理 2\.1<\/strong>/);
+    assert.doesNotMatch(JSON.stringify(course.documents.review.body.ast), /"semantic-title"/);
+    assert.match(JSON.stringify(course.documents.review.body.ast), /data-semantic-number/);
+    const proof = course.documents.review.body.ast.blocks.find(node => node.t === 'Div' && node.c[0][0] === 'block-proof');
+    assert.equal(proof?.c[0][2].some(([key]: string[]) => key === 'data-semantic-number'), false);
+
+    // Reusing and reordering problems in a multi-chapter set changes no source number.
+    await f.put('sets/tutorial.md', '---\nid: tutorial\ntitle: 综合训练\nproblems: [continuous, squeeze]\n---\n::: {.theorem #shared-set-theorem}\n题集说明中的定理。\n:::\n');
+    const reordered = await buildCourse(f.root);
+    for (const [id, ref] of Object.entries(course.references).filter(([, ref]) => ref.kind === 'semantic')) {
+      assert.equal(reordered.references[id].label, ref.label);
+    }
+  } finally { await f.remove(); }
+});
+
+test('content: semantic titles are literal text and automatic anchors are repeatable', async () => {
+  const f = await fixture();
+  try {
+    await f.put('problems/continuous/index.md', String.raw`---
+id: continuous
+title: 连续函数
+---
+::: {.theorem title="<script>alert(1)</script> & \input{secret}"}
+定理正文。
+:::
+
+::: {.proof}
+证明正文。
+:::
+`);
+    const course = await buildCourse(f.root);
+    const body = course.problems.continuous.body;
+    const refs = Object.values(course.references).filter(ref => ref.ownerId === 'continuous' && ref.kind === 'semantic');
+    assert.equal(refs.length, 2);
+    assert.match(refs[0].id, /^continuous-[a-f0-9]{6}-block-1$/);
+    assert.equal(refs[0].label, '定理 2.1');
+    assert.equal(refs[1].label, '证明');
+    assert.match(body.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp;/);
+    assert.doesNotMatch(body.html, /<script>|<\/script>/);
+    assert.match(body.text, /定理 2\.1（<script>alert\(1\)<\/script> & \\input\{secret\}）/);
+    assert.equal(body.ast.blocks[0].c[1][0].t, 'Para');
+    assert.equal(body.ast.blocks[0].c[1].length, 1);
+    assert.deepEqual(Object.values((await buildCourse(f.root)).references).filter(ref => ref.ownerId === 'continuous' && ref.kind === 'semantic'), refs);
+
+    await f.put('problems/continuous/index.md', '---\nid: continuous\ntitle: 连续函数\n---\n::: {.theorem data-semantic-number="9.9"}\n伪造编号。\n:::\n');
+    await assert.rejects(buildCourse(f.root), /不支持属性 data-semantic-number/);
+  } finally { await f.remove(); }
+});
+
 test('content: missing references and invalid metadata are actionable failures', async () => {
   const f = await fixture();
   try {

@@ -1,8 +1,8 @@
 ---
 import { course, href, assetHref, safeJson, firstHeadings, readingPages } from '../lib/course';
 import '../styles/global.css';
-interface Props { title?: string; activeChapter?: string; activeDocument?: string; activeSet?: string; activeProblems?: boolean; }
-const { title, activeChapter, activeDocument, activeSet, activeProblems } = Astro.props;
+interface Props { title?: string; activeChapter?: string; activeDocument?: string; activeSet?: string; }
+const { title, activeChapter, activeDocument, activeSet } = Astro.props;
 const mathConfig = {
   loader: { load: ['[tex]/configmacros', '[tex]/textmacros', '[tex]/boldsymbol'] },
   tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], processEscapes: true, packages: ['base', 'ams', 'configmacros', 'textmacros', 'boldsymbol'], macros: course.macroConfig },
@@ -32,17 +32,16 @@ const mathConfig = {
     <aside id="course-sidebar" class="sidebar" aria-label="课程目录">
       <button type="button" class="icon-button sidebar-close" aria-label="关闭目录">×</button>
       <nav>
-        <a class:list={['nav-overview', { active: !activeChapter }]} href={href()} aria-current={!activeChapter ? 'page' : undefined}><span>课程导览</span><span aria-hidden="true">↗</span></a>
+        <a class:list={['nav-overview', { active: !activeChapter }]} href={href()} aria-current={!activeChapter ? 'page' : undefined}>课程导览</a>
         {course.chapters.map(chapter => <details class="nav-chapter" open={chapter.id === activeChapter || !activeChapter}>
           <summary><span class="chapter-index">{String(chapter.number).padStart(2, '0')}</span><span>{chapter.title}</span><span class="chevron" aria-hidden="true">▶</span></summary>
           <div class="nav-chapter-items">
-            <a class:list={['nav-item', { active: chapter.id === activeChapter && !activeDocument && !activeSet && !activeProblems }]} data-chapter-overview={chapter.id} href={href(`chapters/${chapter.id}/`)} aria-current={chapter.id === activeChapter && !activeDocument && !activeSet && !activeProblems ? 'page' : undefined}>本章导览</a>
+            <a class:list={['nav-item', { active: chapter.id === activeChapter && !activeDocument && !activeSet }]} data-chapter-overview={chapter.id} href={href(`chapters/${chapter.id}/`)} aria-current={chapter.id === activeChapter && !activeDocument && !activeSet ? 'page' : undefined}>本章导览</a>
             {chapter.documents.map(id => <details class="nav-document" open={id === activeDocument}>
               <summary><a class:list={['nav-item', { active: id === activeDocument }]} href={href(`documents/${id}/`)} aria-current={id === activeDocument ? 'page' : undefined}>{course.documents[id].title}</a>{firstHeadings(id).length > 0 && <span class="chevron" aria-hidden="true">▶</span>}</summary>
               {firstHeadings(id).length > 0 && <div class="nav-headings">{firstHeadings(id).map(heading => <a href={href(`documents/${id}/#${heading.id}`)}>{heading.text}</a>)}</div>}
             </details>)}
             {chapter.sets.map(id => <a class:list={['nav-item', { active: id === activeSet }]} href={href(`sets/${id}/`)} aria-current={id === activeSet ? 'page' : undefined}><span>{course.sets[id].title}</span><span class="nav-count">{course.sets[id].problems.length}</span></a>)}
-            <a class:list={['nav-item', { active: chapter.id === activeChapter && activeProblems }]} data-chapter-exercises={chapter.id} href={href(`chapters/${chapter.id}/#exercises`)} aria-current={chapter.id === activeChapter && activeProblems ? 'page' : undefined}><span>所有习题</span><span class="nav-count">{chapter.problems.length}</span></a>
           </div>
         </details>)}
       </nav>

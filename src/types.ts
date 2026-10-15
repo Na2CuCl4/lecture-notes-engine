@@ -7,7 +7,7 @@ export interface Document { id: string; title: string; tags: string[]; body: Bod
 export interface Problem { id: string; title: string; tags: string[]; sources: string[]; difficulty: number | null; chapterId: string; number: string; body: Body; solutions: Part[]; comments: Part[] }
 export interface ExerciseSet { id: string; title: string; body: Body; problems: string[]; groups?: { title: string; problems: string[] }[] }
 export interface Chapter { id: string; title: string; number: number; body: Body; documents: string[]; problems: string[]; sets: string[] }
-export interface Reference { id: string; title: string; label: string; url: string; ownerId: string; chapterId?: string; kind: 'chapter' | 'document' | 'problem' | 'set' | 'heading' | 'equation' | 'figure' }
+export interface Reference { id: string; title: string; label: string; url: string; ownerId: string; chapterId?: string; kind: 'chapter' | 'document' | 'problem' | 'set' | 'heading' | 'equation' | 'figure' | 'semantic' }
 export interface Course {
   schemaVersion: 1; engineVersion: string; revision: string; builtAt: string;
   title: string; subtitle?: string; author: string; language: string; basePath: string; siteUrl: string;

@@ -5,12 +5,12 @@ interface Props { problem: Problem; showChapter?: boolean; standalone?: boolean;
 const { problem, showChapter = false, standalone = false } = Astro.props;
 const chapter = course.chapters.find(item => item.id === problem.chapterId);
 ---
-<article class="problem-card" id={`problem-${problem.id}`} data-problem-id={problem.id}>
+<article class:list={['problem-card', { 'problem-card-linked': !standalone }]} id={`problem-${problem.id}`} data-problem-id={problem.id}>
   <div class="problem-header">
-    <div class="problem-heading"><span class="problem-number">题 {problem.number}</span>{problem.title && <h3>{problem.title}</h3>}</div>
-    <div class="problem-actions"><span class="difficulty" aria-label={problem.difficulty ? `难度 ${problem.difficulty} 星，共 5 星` : '难度未标定'}>{problem.difficulty ? <><span>{'★'.repeat(problem.difficulty)}</span><span class="empty-stars">{'☆'.repeat(5 - problem.difficulty)}</span></> : <span class="unrated">未标定</span>}</span>{!standalone && <a class="permalink" href={href(`problems/${problem.id}/`)} title="打开题目永久链接" aria-label={`打开题 ${problem.number} 的永久链接`}>↗</a>}</div>
+    <div class="problem-heading"><h3>{standalone ? <><span class="problem-number">题 {problem.number}</span>{problem.title && <span>{problem.title}</span>}</> : <a class="problem-title-link" href={href(`problems/${problem.id}/`)}><span class="problem-number">题 {problem.number}</span>{problem.title && <span>{problem.title}</span>}</a>}</h3></div>
+    <div class="problem-actions"><span class="difficulty" aria-label={problem.difficulty ? `难度 ${problem.difficulty} 星，共 5 星` : '难度未标定'}>{problem.difficulty ? <><span>{'★'.repeat(problem.difficulty)}</span><span class="empty-stars">{'☆'.repeat(5 - problem.difficulty)}</span></> : <span class="unrated">未标定</span>}</span></div>
   </div>
-  <div class="problem-meta">{showChapter && chapter && <a class="chapter-tag" href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a>}{problem.sources.map(source => <span class="source-tag">{source}</span>)}{problem.tags.map(tag => <span class="tag">{tag}</span>)}</div>
+  <div class="problem-meta">{chapter && <a class="chapter-tag" data-chapter-tag hidden={!showChapter} href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a>}{problem.sources.map(source => <span class="source-tag">{source}</span>)}{problem.tags.map(tag => <span class="tag">{tag}</span>)}</div>
   <div class="prose problem-body" data-math set:html={problem.body.html}></div>
   {(problem.solutions.length > 0 || problem.comments.length > 0) && <div class="problem-notes">
     {problem.solutions.map((solution, index) => <details class="solution-block" id={solution.id}><summary><span class="detail-icon" aria-hidden="true">＋</span><span>{solution.title || (problem.solutions.length > 1 ? `解法 ${index + 1}` : '解答')}</span><span class="detail-hint">展开</span></summary><div class="prose detail-content" data-math set:html={solution.body.html}></div></details>)}

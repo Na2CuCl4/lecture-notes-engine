@@ -15,7 +15,7 @@ export const firstHeadings = (id: string) => {
 };
 
 const bodyAnchors = (body: Body) => [...body.html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
-const problemAnchors = (id: string) => {
+export const problemAnchors = (id: string) => {
   const problem = course.problems[id];
   return [`problem-${id}`, ...bodyAnchors(problem.body), ...[...problem.solutions, ...problem.comments].flatMap(part => [part.id, ...bodyAnchors(part.body)])];
 };

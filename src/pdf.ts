@@ -4,6 +4,7 @@ import { copyFile, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/pr
 import { dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { canonicalMacros, parseMacros, validateMath } from './macros.ts';
+import { semanticBlock } from './semantic-blocks.ts';
 import type { Body, Chapter, CompileRequest, Course, PandocDocument, PandocNode, Part, Problem } from './types.ts';
 
 export interface PdfOptions {
@@ -17,7 +18,6 @@ export interface PdfOptions {
 }
 
 const templatePath = fileURLToPath(new URL('../templates/print.tex', import.meta.url));
-const attr = (id = ''): [string, string[], [string, string][]] => [id, [], []];
 const text = (value: string): PandocNode[] => [{ t: 'Str', c: value }];
 const para = (value: string): PandocNode => ({ t: 'Para', c: text(value) });
 const heading = (level: number, title: string, id = '', unnumbered = false, unlisted = unnumbered): PandocNode => ({
@@ -56,14 +56,6 @@ function copyBody(body: Body, firstHeadingLevel: number): PandocNode[] {
     // snapshot to bypass that boundary on the worker.
     if (node.t === 'RawInline' || node.t === 'RawBlock') throw new Error(`${body.source}：打印正文不接受原始 HTML 或 TeX。`);
     if (node.t === 'Header') node.c[0] = Math.min(6, firstHeadingLevel + node.c[0] - minLevel);
-    if (node.t === 'Div') {
-      const names: Record<string, string> = { theorem: '定理', definition: '定义', lemma: '引理', proposition: '命题', corollary: '推论', proof: '证明', remark: '注', note: '提示', warning: '易错点', example: '例', exercise: '练习' };
-      const label = names[node.c[0][1][0]];
-      if (label) {
-        const title = node.c[0][2].find(([key]: [string, string]) => key === 'title')?.[1];
-        node.c[1].unshift({ t: 'Para', c: [{ t: 'Strong', c: text(`${label}${title ? `（${title}）` : ''}`) }] });
-      }
-    }
   });
   return blocks;
 }
@@ -87,16 +79,27 @@ function problemTitle(problem: Problem): string {
   return `题 ${problem.number}${problem.title ? `　${problem.title}` : ''}`;
 }
 
-function partBlocks(part: Part, fallbackTitle: string, level: number): PandocNode[] {
-  return [heading(level, part.title || fallbackTitle, part.id, true), ...copyBody(part.body, level + 1)];
+function partBlocks(part: Part, title: string, level: number): PandocNode[] {
+  return [heading(level, title, part.id, true), ...copyBody(part.body, level + 1)];
 }
 
 function solutionBlocks(problem: Problem, level: number): PandocNode[] {
-  return problem.solutions.flatMap((part, i) => partBlocks(part, problem.solutions.length > 1 ? `解法 ${i + 1}` : '解答', level));
+  return problem.solutions.flatMap((part) => partBlocks(part, `解${part.title ? `（${part.title}）` : ''}`, level));
 }
 
 function commentBlocks(problem: Problem, level: number): PandocNode[] {
-  return problem.comments.flatMap((part) => partBlocks(part, part.kind || '评注', level));
+  return problem.comments.flatMap((part) => {
+    const title = part.title || (part.kind ? semanticBlock(part.kind)?.label || part.kind : '');
+    return partBlocks(part, `注${title && title !== '注' ? `（${title}）` : ''}`, level);
+  });
+}
+
+/** Keep the Div itself: Pandoc emits its PDF destination before the environment. */
+function wrapTheorem(node: PandocNode, environment: string, number?: string, title?: string, counter = 'lecturetheorem'): void {
+  // An extra brace group makes literal ']' safe inside TeX's optional title.
+  const optional = title ? `[{${escapeTex(title)}}]` : '';
+  const fixedNumber = number ? `\\renewcommand{\\the${counter}}{${escapeTex(number)}}\n` : '';
+  node.c[1] = [raw(`\\begingroup\n${fixedNumber}\\begin{${environment}}${optional}`), ...node.c[1], raw(`\\end{${environment}}\n\\endgroup`)];
 }
 
 function websiteUrl(course: Course, value: string): string {
@@ -140,39 +143,15 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
     blocks.push(heading(2, book ? '所有习题' : '习题'));
     if (!problems.length) blocks.push(para('本次题单未收录习题。'));
     for (const problem of problems) {
-      blocks.push(raw('\\Needspace{7\\baselineskip}'), heading(3, problemTitle(problem), problem.id, true));
-      const metadata = [problem.difficulty === null ? '难度未标定' : `难度：${problem.difficulty}/5`,
-        ...(problem.tags.length ? [`标签：${problem.tags.join('、')}`] : []),
-        ...(problem.sources.length ? [`来源：${problem.sources.join('、')}`] : [])];
-      blocks.push({ t: 'Para', c: [{ t: 'Emph', c: text(metadata.join('　')) }] }, ...copyBody(problem.body, 4));
+      blocks.push(raw('\\Needspace{7\\baselineskip}'), {
+        t: 'Div', c: [[problem.id, ['print-problem'], [['data-problem-number', problem.number], ['title', problem.title]]], copyBody(problem.body, 4)],
+      });
       // Old solution/note environments used run-in paragraph headings, not
       // another numbered subsection or a separate table-of-contents entry.
       if (request.solutions === 'inline') blocks.push(...solutionBlocks(problem, 5));
       if (request.comments) blocks.push(...commentBlocks(problem, 5));
     }
     if (request.solutions === 'end' && problems.some((problem) => problem.solutions.length)) endSolutions.push({ chapter, problems });
-    if (book) {
-      for (const id of chapter.sets) {
-        const set = course.sets[id];
-        if (!set) throw new Error(`习题集 ${id} 不存在。`);
-        // A set attached to multiple chapters has one canonical anchor. Other
-        // occurrences still contain its description and index, without duplicate IDs.
-        const already = blocks.some((block) => block.t === 'Header' && block.c[1][0] === set.id);
-        blocks.push(heading(2, set.title, already ? '' : set.id), ...copyBody(set.body, 3));
-        const groups = set.groups?.length ? set.groups : [{ title: '', problems: set.problems }];
-        for (const group of groups) {
-          if (group.title) blocks.push(heading(3, group.title));
-          const links: PandocNode[] = [];
-          for (const [index, problemId] of group.problems.entries()) {
-            const problem = course.problems[problemId];
-            if (!problem) throw new Error(`习题集 ${id} 引用了不存在的题目 ${problemId}。`);
-            if (index) links.push({ t: 'Str', c: '；' });
-            links.push({ t: 'Link', c: [attr(), text(problemTitle(problem)), [`ref:${problemId}`, '']] });
-          }
-          blocks.push({ t: 'Para', c: links.length ? links : text('本组暂未收录习题。') });
-        }
-      }
-    }
   }
   if (endSolutions.length) {
     blocks.push(heading(1, '参考解答', '', true, false));
@@ -189,7 +168,7 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
     const attributes = nodeAttr(node);
     const id = attributes?.[0];
     if (id) {
-      // Shared documents/set descriptions may be printed more than once. The
+      // Shared documents may be printed more than once. The
       // first occurrence is canonical; duplicate PDF destinations are invalid.
       if (included.has(id)) attributes![0] = '';
       else included.add(id);
@@ -223,6 +202,21 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
         if (caption[0]?.t === 'Plain' || caption[0]?.t === 'Para') caption[0].c.unshift(prefix);
         else caption.unshift({ t: 'Plain', c: [prefix] });
       }
+    }
+  });
+  // Convert only after collecting destinations and resolving references. The
+  // fixed numbers come from the same course snapshot as the web headings;
+  // changing print order or omitting an earlier block must never renumber them.
+  walk(blocks, (node) => {
+    if (node.t !== 'Div') return;
+    const kind = node.c[0][1][0];
+    const properties = Object.fromEntries(node.c[0][2]);
+    if (kind === 'print-problem') wrapTheorem(node, 'lectureproblem', properties['data-problem-number'], properties.title, 'lectureproblem');
+    else if (semanticBlock(kind)) {
+      // Historical releases predate semantic numbering. Preserve their unnumbered
+      // headings instead of assigning fresh numbers that disagree with their web page.
+      const legacy = semanticBlock(kind)!.numbered && !properties['data-semantic-number'];
+      wrapTheorem(node, `lecture${kind}${legacy ? 'unnumbered' : ''}`, properties['data-semantic-number'], properties['data-semantic-title'] || properties.title);
     }
   });
   const firstBody = chapters[0]?.body || Object.values(course.documents)[0]?.body;

@@ -63,7 +63,7 @@ export async function createServer(options: { config?: QueueConfig; logger?: boo
     const { revision } = request.params; const relative = request.params['*'];
     if (!validRevision(revision)) throw new QueueError('无效的课程版本。');
     const parts = relative.split(/[\\/]/);
-    if (!['assets', '_astro', 'vendor', 'downloads'].includes(parts[0]) || parts.some(part => part === '..' || part.startsWith('.')) || relative.includes('\0')) {
+    if (!['assets', '_astro', 'vendor', 'downloads', 'fragments'].includes(parts[0]) || parts.some(part => part === '..' || part.startsWith('.')) || relative.includes('\0')) {
       throw new QueueError('该版本资源不可访问。', 404);
     }
     const course = loadCourse(revision, config);

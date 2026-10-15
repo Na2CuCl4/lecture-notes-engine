@@ -1,0 +1,7 @@
+---
+import ProblemCard from '../../../components/ProblemCard.astro';
+import { course } from '../../../lib/course';
+export function getStaticPaths() { return Object.values(course.problems).map(problem => ({ params: { id: problem.id }, props: { problem } })); }
+const { problem } = Astro.props;
+---
+<ProblemCard problem={problem} />

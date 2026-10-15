@@ -174,6 +174,11 @@ test('API serves mounted course, validates jobs, blocks premature download and f
     mkdirSync(oldAssets); writeFileSync(join(oldAssets, 'figure.svg'), '<svg></svg>');
     const asset = await app.inject(`/notes/_releases/${f.course.revision}/assets/figure.svg`);
     assert.equal(asset.statusCode, 200); assert.match(asset.headers['cache-control']!, /immutable/);
+    const oldFragment = join(f.config.releasesDir, f.course.revision, 'site', 'fragments', 'problems', 'p1');
+    mkdirSync(oldFragment, { recursive: true }); writeFileSync(join(oldFragment, 'index.html'), '<article data-problem-id="p1">旧版题目</article>');
+    const fragment = await app.inject(`/notes/_releases/${f.course.revision}/fragments/problems/p1/index.html`);
+    assert.equal(fragment.statusCode, 200); assert.match(fragment.body, /旧版题目/);
+    assert.match(fragment.headers['cache-control']!, /immutable/);
     assert.equal((await app.inject(`/notes/_releases/${f.course.revision}/course.json`)).statusCode, 404);
   } finally { await app.close(); f.clean(); }
 });

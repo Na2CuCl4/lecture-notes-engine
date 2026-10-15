@@ -25,7 +25,7 @@ summary::-webkit-details-marker{display:none}
 .download-link{margin-left:auto;display:flex;align-items:center;gap:9px;font-size:14px;font-weight:600}
 .download-link svg{width:17px;height:17px}
 .sidebar{position:fixed;top:var(--topbar);left:0;bottom:0;width:var(--sidebar);background:var(--green);color:#d7e3d8;overflow-y:auto;overscroll-behavior:contain;z-index:35;padding:32px 19px 26px;transition:transform .22s ease;scrollbar-width:thin;scrollbar-color:#507067 var(--green)}
-.nav-overview{padding:13px 15px;display:flex;justify-content:space-between;border-top:1px solid #436057;border-bottom:1px solid #436057;font-size:14px;letter-spacing:.05em;margin-bottom:17px}
+.nav-overview{padding:10px 11px 10px 38px;display:block;font-size:14px;line-height:1.7;font-weight:600;color:#ecf0e5;margin:8px 0}
 .nav-overview.active{color:#f5eedb}
 .nav-chapter{margin:8px 0}
 .nav-chapter>summary{display:flex;align-items:center;gap:11px;padding:10px 11px;font-size:14px;line-height:1.7;font-weight:600;color:#ecf0e5}
@@ -71,7 +71,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .chapter-card{position:relative;border:1px solid var(--line);background:var(--surface);padding:25px 25px 19px;border-radius:5px;transition:border-color .2s,transform .2s}
 .chapter-card:hover{border-color:#95ac94;transform:translateY(-2px)}
 .chapter-card-top{display:flex;align-items:center;justify-content:space-between;color:#89a185;font-family:Georgia,serif;font-size:30px;line-height:1}
-.chapter-card-top>span:last-child{font-size:18px;color:#71896d}
 .chapter-card h3{font-family:var(--serif);font-size:22px;font-weight:600;margin:22px 0 10px}
 .chapter-card h3 a:after{content:"";position:absolute;inset:0}
 .chapter-card>p{font-size:14px;line-height:1.9;color:#7b8475;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;min-height:46px}
@@ -80,16 +79,17 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .breadcrumbs a{color:#55705b}
 .breadcrumbs a:hover{text-decoration:underline}
 .page-heading{margin:34px 0 32px}
+.chapter-kicker{font-size:14px;line-height:1.7;font-weight:600;letter-spacing:.14em;color:var(--green-mid);margin-bottom:12px}
 .page-heading h1{font-family:var(--serif);font-size:clamp(28px,2.8vw,39px);font-weight:600;line-height:1.55;letter-spacing:.025em;margin:12px 0 14px}
 .chapter-introduction{color:#6a7868}
 .document-collection{margin:34px 0 42px}
-.document-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-.document-links>a{display:flex;align-items:center;gap:14px;padding:18px;background:#f0f3eb;border:1px solid #e3e8db;border-radius:4px}
-.document-links>a:hover{border-color:#a6b79e}
-.document-link-index{font-size:14px;color:#88a07c;align-self:flex-start;padding-top:1px}
-.document-links strong{display:block;font-size:14px;font-weight:600;line-height:1.6}
-.document-links small{display:block;font-size:14px;color:#7a8870;margin-top:6px;line-height:1.6}
-.document-links>a>span:last-child{margin-left:auto;color:#79946b}
+.collection-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.collection-card{display:flex;flex-direction:column;justify-content:center;gap:7px;padding:20px 22px;border:1px solid #e0e7d6;border-radius:4px}
+.collection-card:hover{border-color:#a6b79e}
+.collection-card h3{font-family:var(--serif);font-size:18px;font-weight:600;line-height:1.6}
+.collection-card p{font-size:14px;color:#7a8870;line-height:1.6}
+.document-card{background:#f0f3eb}
+.set-card{background:#f4f2e9}
 .exercise-section{scroll-margin-top:90px;margin-top:36px}
 .filter-panel{background:#f2f4ed;border:1px solid var(--line);border-radius:5px;padding:19px 20px}
 .search-field{display:flex;align-items:center;gap:12px;border-bottom:1px solid #dce2d4;padding-bottom:15px}
@@ -112,17 +112,26 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .list-message{font-size:14px;color:#6c7b60;line-height:1.8;margin:9px 0;min-height:0}
 .list-message:empty{display:none}
 .problem-list{display:flex;flex-direction:column;gap:20px}
+.pagination{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:8px;margin:26px 0 8px;font-size:14px}
+.pagination-button{display:inline-flex;justify-content:center;align-items:center;min-width:36px;min-height:36px;padding:6px 10px;background:var(--surface);border:1px solid var(--line);border-radius:4px;color:#4a6053;font-size:14px;line-height:1.5}
+.pagination-button:hover:not(:disabled){background:var(--green-pale);border-color:#a9bba3}
+.pagination-button[aria-current="page"]{background:var(--green);border-color:var(--green);color:#f7f6ed}
+.pagination-status{color:var(--muted);font-size:14px;line-height:1.7;padding:0 6px;font-variant-numeric:tabular-nums}
+.page-load-error{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px;margin:16px 0;background:#fcf4e4;border:1px solid #e8d5ae;border-radius:4px;color:#806a3d;font-size:14px;line-height:1.8}
 .problem-card{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:24px 25px 0;overflow:hidden;scroll-margin-top:90px}
+.problem-card-linked{cursor:pointer}
+.problem-card-linked:hover{border-color:#a6b79e}
+.problem-title-link{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
+.problem-title-link:hover{color:var(--green-mid)}
+.problem-title-link:focus-visible{outline-offset:5px}
 .problem-header{display:flex;align-items:flex-start;justify-content:space-between;gap:15px;margin-bottom:11px}
 .problem-heading{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap}
 .problem-number{font-size:14px;font-weight:700;color:#2f5743;white-space:nowrap}
-.problem-heading h3{font-family:var(--serif);font-weight:600;font-size:17px;line-height:1.5}
+.problem-heading h3{display:flex;gap:12px;align-items:baseline;flex-wrap:wrap;font-family:var(--serif);font-weight:600;font-size:17px;line-height:1.5}
 .problem-actions{display:flex;align-items:center;gap:13px;padding-top:1px}
 .difficulty{font-size:14px;color:#b18f4e;white-space:nowrap;letter-spacing:1px}
 .difficulty .empty-stars{color:#c9cfbe}
 .unrated{font-size:14px;letter-spacing:0;color:#98a18b}
-.permalink{color:#98a48b;font-size:16px;line-height:1}
-.permalink:hover{color:var(--green)}
 .problem-meta{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
 .tag,.source-tag,.chapter-tag{display:inline-flex;padding:3px 7px;background:#eef2e8;color:#6a805e;font-size:14px;line-height:1.5;border-radius:3px}
 .source-tag{background:#f5f0e6;color:#9b875d}
@@ -143,12 +152,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .empty-state h3{font-size:16px;font-weight:500;margin:12px 0}
 .empty-state p{font-size:14px;color:var(--muted);margin-bottom:20px}
 .related-sets{margin:36px 0 42px}
-.set-links{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
-.set-links>a{padding:21px 22px;display:flex;justify-content:space-between;align-items:center;gap:10px;background:#eef2e8;border:1px solid #e0e7d6;border-radius:4px}
-.set-links>a:hover{border-color:#a6b79e}
-.set-links h3{font-family:var(--serif);font-size:18px;margin:9px 0}
-.set-links p{font-size:14px;color:#849277}
-.set-links>a>span{color:#79946b}
 .document-tags{display:flex;gap:7px;flex-wrap:wrap}
 .document-page{max-width:980px}
 .document-prose{padding:8px 0 0}
@@ -185,15 +188,19 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .prose pre code{font-size:inherit}
 .prose :not(pre)>code{background:#edf1e6;padding:1px 4px;border-radius:2px}
 .prose hr{border:0;border-top:1px solid var(--line);margin:2em 0}
-.prose .theorem,.prose .definition,.prose .lemma,.prose .corollary,.prose .proposition{margin:1.25em 0;padding:18px 22px;background:#f0f4e9;border-left:3px solid #809c6a}
-.prose .proof{padding:8px 0 8px 18px;border-left:2px solid #d9e2ce}
+.prose .theorem,.prose .definition,.prose .lemma,.prose .corollary,.prose .proposition,.prose .example,.prose .exercise{margin:1.25em 0;padding:18px 22px;background:#f0f4e9;border-left:3px solid #809c6a}
+.prose .proof{margin:1em 0;padding:8px 0 8px 18px;border-left:2px solid #d9e2ce}
 .prose .note,.prose .remark,.prose .warning,.prose .tip{margin:1em 0;padding:15px 20px;background:#f8f4e8;border-left:2px solid #c4ac77}
+.prose .semantic-block{scroll-margin-top:92px}
+.prose .semantic-title{font-size:16px;font-weight:600;line-height:1.7;margin:0 0 .6em;color:#314d37}
+.prose .note>.semantic-title,.prose .remark>.semantic-title,.prose .warning>.semantic-title,.prose .tip>.semantic-title{color:#806a3d}
 .prose .equation{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px}
 .prose .equation:after{content:"(" attr(data-equation-number) ")";font-family:var(--serif);font-size:14px;color:#697660}
 .prose .equation>p{margin:0;min-width:0}
 .prose mjx-container[jax="CHTML"][display="true"]{overflow-x:auto;overflow-y:hidden;max-width:100%;padding:3px 0;margin:1em 0!important}
 .prose mjx-container[jax="CHTML"]{font-size:106%!important}
 .prose .footnotes{font-size:14px;color:#7c8771;border-top:1px solid var(--line);margin-top:36px;padding-top:16px}
+.prose .footnotes>hr:first-child{display:none}
 .group-heading{font-family:var(--serif);font-size:20px;margin:16px 0 2px;padding-bottom:9px;border-bottom:1px solid var(--line)}
 .print-dialog{border:1px solid var(--line);border-radius:7px;padding:27px;width:min(560px,calc(100vw - 30px));max-height:85vh;background:var(--surface);color:var(--ink);box-shadow:0 24px 100px #15271f30}
 .print-dialog::backdrop{background:#12281f66;backdrop-filter:blur(3px)}
@@ -248,7 +255,7 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .chapter-card h3{font-size:19px}
 .chapter-card-meta{gap:9px;font-size:14px}
 .section-heading h2{font-size:22px}
-.document-links{grid-template-columns:1fr}
+.collection-links{grid-template-columns:1fr}
 .exercise-tools{width:100%}
 .course-meta{gap:15px}
 .course-meta>span:not(:last-child){padding-right:15px}
@@ -263,7 +270,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .problem-header{gap:10px}
 .problem-actions{gap:8px}
 .difficulty{font-size:14px}
-.set-links{grid-template-columns:1fr}
 }
 @media(max-width:760px){:root{--topbar:60px;--sidebar:280px}
 .topbar{padding:0 16px 0 11px;gap:10px}
@@ -284,7 +290,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .text-link{font-size:14px}
 .course-meta{padding:17px 0;gap:18px;font-size:14px}
 .course-meta>span:not(:last-child){padding-right:18px}
-.course-meta>span:nth-child(2){border:0}
 .course-meta strong{font-size:18px}
 .chapter-collection{padding-top:33px}
 .section-heading{margin-bottom:20px}
@@ -316,7 +321,7 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .prose{font-size:16px;line-height:1.95}
 .prose h2{font-size:22px}
 .prose h3{font-size:19px}
-.prose .theorem,.prose .definition,.prose .lemma,.prose .corollary,.prose .proposition{padding:16px}
+.prose .theorem,.prose .definition,.prose .lemma,.prose .corollary,.prose .proposition,.prose .example,.prose .exercise{padding:16px}
 .prose .equation{gap:6px}
 .prose .equation:after{font-size:14px}
 .print-dialog{padding:22px}
@@ -343,7 +348,7 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}
 *,*:before,*:after{transition:none!important;animation:none!important}
 }
-@media print{.topbar,.sidebar,.sidebar-scrim,.filter-panel,.exercise-toolbar,.list-message,.print-dialog,.hero-actions,.download-link,.problem-memberships{display:none!important}
+@media print{.topbar,.sidebar,.sidebar-scrim,.filter-panel,.exercise-toolbar,.pagination,.list-message,.print-dialog,.hero-actions,.download-link,.problem-memberships{display:none!important}
 .main-content{margin:0}
 .page-container{padding:0;width:100%;max-width:none}
 .problem-card{break-inside:avoid;box-shadow:none;border-color:#ccc}

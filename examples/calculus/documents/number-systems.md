@@ -18,7 +18,7 @@ tags: [知识点复习, 数系, 完备性]
 
 然而，在微积分研究中，仅有有理数域还远远不够。除了老师在课上举的例子以外，我更喜欢下面这种引入方式。在后续的课程中，我们会接触到**数列极限**的概念，并提出**Cauchy 收敛准则**。这可以算得上微积分中最基本的概念，即：
 
-::: {.theorem}
+::: {.theorem #cauchy-criterion title="Cauchy 收敛准则"}
 数列 $\{x_n\}_{n\geq 1}\subseteq\RR$ 收敛当且仅当它是一个 **Cauchy 点列**，即对于任意 $\varepsilon>0$，存在 $N\in\mathbb{N}$，使得对任意 $m,n>N$，$|x_n-x_m|<\varepsilon$。
 :::
 

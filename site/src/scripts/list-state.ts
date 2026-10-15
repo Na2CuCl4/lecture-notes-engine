@@ -1,5 +1,22 @@
 export interface SearchProblem {
-  id: string; chapterId: string; tags: string[]; sources: string[]; difficulty: number | null; hasSolutions: boolean; text: string;
+  id: string; chapterId: string; tags: string[]; sources: string[]; difficulty: number | null; hasSolutions: boolean; text: string; anchors?: string[];
+}
+export const PAGE_SIZE = 10;
+export function paginateProblems(ids: string[], requested: unknown) {
+  const pages = Math.max(1, Math.ceil(ids.length / PAGE_SIZE));
+  const parsed = Number(requested);
+  const page = Number.isFinite(parsed) ? Math.min(pages, Math.max(1, Math.trunc(parsed))) : 1;
+  return { page, pages, ids: ids.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE), total: ids.length };
+}
+export function pageForAnchor(ids: string[], problems: SearchProblem[], anchor: string | undefined): number | null {
+  if (!anchor) return null;
+  const owner = problems.find(problem => `problem-${problem.id}` === anchor || problem.anchors?.includes(anchor));
+  const index = owner ? ids.indexOf(owner.id) : -1;
+  return index < 0 ? null : Math.floor(index / PAGE_SIZE) + 1;
+}
+export function paginationNumbers(page: number, pages: number): (number | 'gap')[] {
+  const numbers = [...new Set([1, pages, ...Array.from({ length: 5 }, (_, index) => page + index - 2)])].filter(value => value >= 1 && value <= pages).sort((a, b) => a - b);
+  return numbers.flatMap((value, index) => index && value - numbers[index - 1] > 1 ? ['gap' as const, value] : [value]);
 }
 export interface Filters { search: string; tag: string; source: string; difficulty: string; solutions: string }
 export function filterProblems(problems: SearchProblem[], filters: Filters): SearchProblem[] {

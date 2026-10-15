@@ -5,6 +5,7 @@ import { parseDocument } from 'yaml';
 import { z } from 'zod';
 import { parseMarkdown, renderHtml } from './pandoc.js';
 import { parseMacros, validateMath, validateMacroConfig } from './macros.js';
+import { semanticBlock, semanticBlocks, semanticHeading } from './semantic-blocks.js';
 import type { Body, Chapter, Course, Document, ExerciseSet, PandocDocument, PandocNode, Part, Problem, Reference } from './types.js';
 
 const idSchema = z.string().regex(/^[a-z][a-z0-9-]*$/, 'ID 必须以小写字母开头，只含小写字母、数字、连字符');
@@ -28,7 +29,7 @@ const problemSchema = z.object({
   solutions: z.array(z.string().min(1)).default([]), comments: z.array(z.string().min(1)).default([]),
 }).strict();
 const partSchema = z.object({ id: idSchema.optional(), title: z.string().optional(), kind: z.string().optional() }).strict();
-const containers = new Set(['theorem', 'definition', 'lemma', 'proposition', 'corollary', 'proof', 'remark', 'note', 'warning', 'example', 'exercise']);
+const containers = new Set(Object.keys(semanticBlocks));
 const imageExtensions = new Set(['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg']);
 
 function fail(source: string, message: string): never { throw new Error(`${source}：${message}`); }
@@ -307,10 +308,12 @@ export async function buildCourse(contentDir: string): Promise<Course> {
   pending.sort((a, b) => bodyOrder.get(a.body)! - bodyOrder.get(b.body)!);
   const equationCounts = new Map<string, number>();
   const figureCounts = new Map<string, number>();
+  const semanticCounts = new Map<string, number>();
   for (const entry of pending) {
     const { body, markdown, ownerId, chapterId, url } = entry;
     const explicitIds = new Set([...markdown.matchAll(/\{[^}\n]*#([A-Za-z][\w-]*)[^}\n]*\}/g)].map(match => match[1]));
     let headingCount = 0;
+    let semanticCount = 0;
     const namespace = `${ownerId}-${digest(body.source).slice(0, 6)}`;
     const chapterNumber = course.chapters.find(chapter => chapter.id === chapterId)?.number ?? 0;
     walk(body.ast.blocks, node => {
@@ -325,10 +328,32 @@ export async function buildCourse(contentDir: string): Promise<Course> {
         }
         if (node.t === 'Div' && (attr[1].length !== 1 || !containers.has(attr[1][0]))) fail(body.source, `语义块须使用 ${[...containers].join('/')} 之一`);
         if (node.t !== 'Div' && node.t !== 'CodeBlock' && attr[1].length) fail(body.source, `不支持 ${node.t} 的自定义 class`);
-        if (attr[0] && node.t !== 'Header' && node.t !== 'Image' && node.t !== 'Figure') {
+        if (attr[0] && node.t !== 'Header' && node.t !== 'Image' && node.t !== 'Figure' && node.t !== 'Div') {
           metadata(idSchema, attr[0], body.source);
           register({ id: attr[0], title: attr[2].find((pair: string[]) => pair[0] === 'title')?.[1] || attr[0], label: attr[0], ownerId, chapterId, kind: 'heading', url: url + '#' + attr[0] }, body.source);
         }
+      }
+      if (node.t === 'Div') {
+        const attributes = node.c[0];
+        const semantic = semanticBlock(attributes[1][0])!;
+        semanticCount++;
+        attributes[0] ||= `${namespace}-block-${semanticCount}`;
+        metadata(idSchema, attributes[0], body.source);
+        const title = (attributes[2].find(([key]: string[]) => key === 'title')?.[1] ?? '').trim();
+        let number: string | undefined;
+        if (semantic.numbered) {
+          if (!chapterId || !chapterNumber) fail(body.source, '编号语义块必须属于一个有效章节');
+          const count = (semanticCounts.get(chapterId) ?? 0) + 1;
+          semanticCounts.set(chapterId, count);
+          number = `${chapterNumber}.${count}`;
+        }
+        // Only the compiler can add these attributes: user-supplied data-* values
+        // were rejected above. Keep prose untouched for the PDF renderer.
+        attributes[2].push(['data-semantic-label', semantic.label]);
+        if (number) attributes[2].push(['data-semantic-number', number]);
+        if (title) attributes[2].push(['data-semantic-title', title]);
+        const label = semanticHeading(semantic.label, number, number ? undefined : title);
+        register({ id: attributes[0], title: title || label, label, ownerId, chapterId, kind: 'semantic', url: url + '#' + attributes[0] }, body.source);
       }
       if (node.t === 'Header') {
         const [level, attributes, inlines] = node.c;
@@ -417,12 +442,18 @@ export async function buildCourse(contentDir: string): Promise<Course> {
       const text = plain(node.c[1]).trim();
       if (!text || text === '自动文字' || text === 'auto') node.c[1] = inlineText(target.label);
     });
-    body.text = plain(body.ast.blocks).trim();
     const web = structuredClone(body.ast);
     walk(web.blocks, node => {
       if (node.t === 'Link' && node.c[2][0].startsWith('ref:')) node.c[2][0] = references[node.c[2][0].slice(4)].url;
       if (node.t === 'Image') node.c[2][0] = config.basePath + node.c[2][0].split('/').map(encodeURIComponent).join('/');
+      if (node.t === 'Div' && semanticBlock(node.c[0][1][0])) {
+        const attributes = new Map<string, string>(node.c[0][2]);
+        const heading = semanticHeading(attributes.get('data-semantic-label')!, attributes.get('data-semantic-number'), attributes.get('data-semantic-title'));
+        // Titles remain plain Str nodes: HTML and TeX syntax is displayed literally.
+        node.c[1].unshift({ t: 'Div', c: [['', ['semantic-title'], []], [{ t: 'Plain', c: [{ t: 'Strong', c: inlineText(heading) }] }]] });
+      }
     });
+    body.text = plain(web.blocks).trim();
     body.html = await renderHtml(web);
   }
 

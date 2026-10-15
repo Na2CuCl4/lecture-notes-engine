@@ -2,6 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import { course, href } from '../lib/course';
 const count = Object.keys(course.problems).length;
+const documentCount = Object.keys(course.documents).length;
+const setCount = Object.keys(course.sets).length;
 ---
 <Layout>
   <div class="page-container home-page">
@@ -10,10 +12,10 @@ const count = Object.keys(course.problems).length;
         <h1>{course.title}</h1>
         {course.subtitle && <p>{course.subtitle}</p>}
         <p class="course-author">{course.author}</p>
-        <div class="hero-actions">{course.chapters[0] && <a class="button button-primary" href={href(`chapters/${course.chapters[0].id}/`)} data-reading-link><span data-reading-label>开始阅读</span><span aria-hidden="true">→</span></a>}</div>
+        <div class="hero-actions">{course.chapters[0] && <a class="button button-primary" href={href(`chapters/${course.chapters[0].id}/`)} data-reading-link><span data-reading-label>开始阅读</span></a>}</div>
       </div>
     </section>
-    <div class="course-meta"><span><strong>{course.chapters.length}</strong> 个章节</span><span><strong>{count}</strong> 道习题</span></div>
-    <section class="chapter-collection" aria-label="课程章节"><div class="chapter-grid">{course.chapters.map(chapter => <article class="chapter-card"><div class="chapter-card-top"><span>{String(chapter.number).padStart(2, '0')}</span><span aria-hidden="true">↗</span></div><h3><a href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a></h3><p>{chapter.body.text || '回顾核心概念，通过习题检验与深化理解。'}</p><div class="chapter-card-meta"><span>{chapter.documents.length} 篇文档</span><span>{chapter.problems.length} 道习题</span><span>{chapter.sets.length} 个习题集</span></div></article>)}</div></section>
+    <div class="course-meta"><span><strong>{course.chapters.length}</strong> 个章节</span><span><strong>{documentCount}</strong> 篇文档</span><span><strong>{setCount}</strong> 个习题集</span><span><strong>{count}</strong> 道习题</span></div>
+    <section class="chapter-collection" aria-label="课程章节"><div class="chapter-grid">{course.chapters.map(chapter => <article class="chapter-card"><div class="chapter-card-top"><span>{String(chapter.number).padStart(2, '0')}</span></div><h3><a href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a></h3><p>{chapter.body.text || '回顾核心概念，通过习题检验与深化理解。'}</p><div class="chapter-card-meta"><span>{chapter.documents.length} 篇文档</span><span>{chapter.sets.length} 个习题集</span><span>{chapter.problems.length} 道习题</span></div></article>)}</div></section>
   </div>
 </Layout>

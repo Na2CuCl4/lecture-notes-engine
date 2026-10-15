@@ -13,6 +13,35 @@
 \usepackage{mathrsfs,cancel}
 \usepackage[colorlinks,linkcolor=blue]{hyperref}
 \hypersetup{breaklinks=true,pdftitle={@@PDF_TITLE@@},pdfauthor={@@AUTHOR@@}}
+\usepackage[hyperref]{ntheorem}
+\theoremstyle{plain}
+\theoremheaderfont{\normalfont\bfseries}
+\theorembodyfont{\normalfont}
+\theoremseparator{}
+\newtheorem{lecturetheorem}{定理}[chapter]
+\newtheorem{lecturedefinition}[lecturetheorem]{定义}
+\newtheorem{lectureproposition}[lecturetheorem]{命题}
+\newtheorem{lecturelemma}[lecturetheorem]{引理}
+\newtheorem{lecturecorollary}[lecturetheorem]{推论}
+\newtheorem{lectureremark}[lecturetheorem]{注}
+\newtheorem{lecturenote}[lecturetheorem]{注}
+\newtheorem{lectureexample}[lecturetheorem]{例}
+\newtheorem{lectureexercise}[lecturetheorem]{练习}
+\newtheorem{lecturewarning}[lecturetheorem]{警示}
+\newtheorem{lectureproblem}{题}[chapter]
+\newtheorem*{lectureproof}{证明}
+% Older published snapshots have no fixed semantic number. Keep their headings
+% unnumbered; current builds always supply the number shared with the website.
+\newtheorem*{lecturetheoremunnumbered}{定理}
+\newtheorem*{lecturedefinitionunnumbered}{定义}
+\newtheorem*{lecturepropositionunnumbered}{命题}
+\newtheorem*{lecturelemmaunnumbered}{引理}
+\newtheorem*{lecturecorollaryunnumbered}{推论}
+\newtheorem*{lectureremarkunnumbered}{注}
+\newtheorem*{lecturenoteunnumbered}{注}
+\newtheorem*{lectureexampleunnumbered}{例}
+\newtheorem*{lectureexerciseunnumbered}{练习}
+\newtheorem*{lecturewarningunnumbered}{警示}
 % Match the old main face where installed. Debian's Noto CJK package uses
 % the second family name; Fandol keeps local TeX installations usable offline.
 \IfFontExistsTF{simkai.ttf}{\newcommand{\lectureitalicfont}{simkai.ttf}}{\newcommand{\lectureitalicfont}{FandolKai-Regular.otf}}
