@@ -1,14 +1,108 @@
 import { filterProblems, restoreSelection, groupByChapter, randomSample, type SearchProblem, type Filters } from './list-state';
+import { readingHref, restoreReadingProgress, type ReadingPage, type ReadingProgress } from './reading-state';
 import type { PrintJob, PrintRequest } from '../../../src/types';
 
 declare global { interface Window { MathJax?: { startup?: { promise?: Promise<void> }; typesetPromise?: (elements: Element[]) => Promise<void> } } }
-interface ClientConfig { revision: string; basePath: string; chapters: { id: string; title: string }[] }
+interface ClientConfig { revision: string; basePath: string; siteUrl: string; readingPages: ReadingPage[]; chapters: { id: string; title: string }[] }
 interface ListConfig { title: string; chapterId?: string; includeDocuments: boolean; revision: string; problems: SearchProblem[]; groups: { title: string; problems: string[] }[] }
 const client: ClientConfig = JSON.parse(document.querySelector('#course-client-config')!.textContent!);
 const base = client.basePath.replace(/\/+$/, '');
 const api = (path: string) => `${base}/api/${path}`;
 const $ = <T extends Element = HTMLElement>(selector: string, root: ParentNode = document) => root.querySelector<T>(selector)!;
 const $$ = <T extends Element = HTMLElement>(selector: string, root: ParentNode = document) => Array.from(root.querySelectorAll<T>(selector));
+
+const progressKey = `lecture-notes-reading:${client.siteUrl || location.origin}:${base}`;
+const resumeKey = `${progressKey}:resume`;
+const currentReadingHref = () => readingHref(location.href, location.origin, client.readingPages);
+function readProgress(storage: Storage, key: string) {
+  try {
+    const raw = storage.getItem(key);
+    if (!raw) return null;
+    const progress = restoreReadingProgress(JSON.parse(raw), location.origin, client.readingPages, client.revision);
+    if (!progress) storage.removeItem(key);
+    return progress;
+  } catch {
+    try { storage.removeItem(key); } catch { /* Storage may be disabled. */ }
+    return null;
+  }
+}
+function writeProgress(progress: ReadingProgress) {
+  try { localStorage.setItem(progressKey, JSON.stringify(progress)); } catch { /* Reading works when storage is unavailable. */ }
+}
+let pendingResume: ReadingProgress | null = null;
+try {
+  pendingResume = readProgress(sessionStorage, resumeKey);
+  sessionStorage.removeItem(resumeKey);
+  if (pendingResume?.href !== currentReadingHref()) pendingResume = null;
+} catch { /* Private browsing may disable storage. */ }
+let restoringProgress = pendingResume !== null;
+let navigatingToReadingPage = false;
+let progressTimer: ReturnType<typeof setTimeout> | undefined;
+function captureReadingProgress() {
+  if (restoringProgress || navigatingToReadingPage) return;
+  const href = currentReadingHref();
+  if (!href) return; // Returning to the course overview must retain the last passage.
+  const anchors = $$<HTMLElement>('#main-content [id]').filter(element => !element.closest('[hidden], details:not([open])') && element.getClientRects().length > 0);
+  let nearest: HTMLElement | undefined;
+  let nearestTop = -Infinity;
+  for (const element of anchors) {
+    const top = element.getBoundingClientRect().top;
+    if (top <= 100 && top > nearestTop) { nearest = element; nearestTop = top; }
+  }
+  writeProgress({ href, revision: client.revision, timestamp: Date.now(), scrollY: window.scrollY,
+    ...(nearest ? { anchor: nearest.id, offset: -nearestTop } : {}),
+    expanded: $$<HTMLDetailsElement>('#main-content details[open][id]').map(details => details.id),
+  });
+}
+const readingLink = $<HTMLAnchorElement>('[data-reading-link]');
+if (readingLink) {
+  const firstChapterHref = readingLink.href;
+  let progress: ReadingProgress | null;
+  function refreshReadingLink() {
+    progress = null;
+    try { progress = readProgress(localStorage, progressKey); } catch { /* Use the first chapter. */ }
+    readingLink.href = progress?.href || firstChapterHref;
+    $('[data-reading-label]', readingLink).textContent = progress ? '继续阅读' : '开始阅读';
+  }
+  refreshReadingLink();
+  window.addEventListener('pageshow', refreshReadingLink);
+  window.addEventListener('storage', event => { if (event.key === progressKey) refreshReadingLink(); });
+  readingLink.addEventListener('click', () => {
+    if (progress) try { sessionStorage.setItem(resumeKey, JSON.stringify(progress)); } catch { /* The saved page remains a valid destination. */ }
+  });
+}
+document.addEventListener('click', event => {
+  if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const link = (event.target as Element).closest<HTMLAnchorElement>('a[href]');
+  if (!link || link.hasAttribute('download') || link.target === '_blank') return;
+  const target = readingHref(link.href, location.origin, client.readingPages);
+  if (!target) { captureReadingProgress(); return; }
+  if (!link.hasAttribute('data-reading-link')) writeProgress({ href: target, revision: client.revision, timestamp: Date.now(), scrollY: 0 });
+  navigatingToReadingPage = new URL(target, location.origin).pathname !== location.pathname || new URL(target, location.origin).search !== location.search;
+});
+window.addEventListener('scroll', () => {
+  if (progressTimer) clearTimeout(progressTimer);
+  progressTimer = setTimeout(captureReadingProgress, 350);
+}, { passive: true });
+window.addEventListener('pagehide', captureReadingProgress);
+window.addEventListener('pageshow', event => { if (event.persisted) { navigatingToReadingPage = false; captureReadingProgress(); } });
+document.addEventListener('visibilitychange', () => { if (document.hidden) captureReadingProgress(); });
+
+function updateChapterNavigation() {
+  const chapterId = $('.page-container[data-chapter-page]')?.dataset.chapterPage;
+  if (!chapterId) return;
+  let hash = ''; try { hash = decodeURIComponent(location.hash.slice(1)); } catch { /* Ignore malformed anchors. */ }
+  const target = hash ? document.getElementById(hash) : null;
+  const exercises = hash === 'exercises' || Boolean(target?.closest('[data-exercise-list]'));
+  for (const [selector, active] of [['[data-chapter-overview]', !exercises], ['[data-chapter-exercises]', exercises]] as const) {
+    const item = $$<HTMLAnchorElement>(selector).find(item => (item.dataset.chapterOverview || item.dataset.chapterExercises) === chapterId);
+    if (!item) continue;
+    item.classList.toggle('active', active);
+    active ? item.setAttribute('aria-current', 'page') : item.removeAttribute('aria-current');
+  }
+}
+updateChapterNavigation();
+window.addEventListener('hashchange', () => { updateChapterNavigation(); navigatingToReadingPage = false; });
 
 // Native details remain useful without JavaScript; the drawer adds keyboard support.
 const menu = $<HTMLButtonElement>('.menu-toggle');
@@ -94,8 +188,41 @@ function revealHash() {
   refreshMath(target);
   void mathQueue.then(() => target.scrollIntoView({ block: 'start' }));
 }
-window.addEventListener('hashchange', revealHash);
-revealHash();
+window.addEventListener('hashchange', () => { revealHash(); captureReadingProgress(); });
+if (!pendingResume) { revealHash(); captureReadingProgress(); }
+else void restoreReadingPosition(pendingResume);
+async function restoreReadingPosition(progress: ReadingProgress) {
+  const cancel = () => { restoringProgress = false; };
+  window.addEventListener('wheel', cancel, { once: true, passive: true });
+  window.addEventListener('touchstart', cancel, { once: true, passive: true });
+  try {
+    for (const id of progress.expanded || []) {
+      const details = document.getElementById(id);
+      if (details instanceof HTMLDetailsElement) details.open = true;
+    }
+    const target = progress.anchor ? document.getElementById(progress.anchor) : null;
+    let ancestor = target;
+    while (ancestor) { if (ancestor instanceof HTMLDetailsElement) ancestor.open = true; ancestor = ancestor.parentElement; }
+    const move = () => {
+      if (!restoringProgress) return;
+      const top = target ? window.scrollY + target.getBoundingClientRect().top + (progress.offset || 0) : progress.scrollY;
+      window.scrollTo({ top: Math.max(0, top), behavior: 'instant' });
+    };
+    move();
+    refreshMath();
+    if (document.readyState !== 'complete') await new Promise<void>(resolve => window.addEventListener('load', () => resolve(), { once: true }));
+    await document.fonts.ready;
+    await mathQueue;
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    move();
+  } finally {
+    window.removeEventListener('wheel', cancel);
+    window.removeEventListener('touchstart', cancel);
+    restoringProgress = false;
+    pendingResume = null;
+    captureReadingProgress();
+  }
+}
 function setupList(section: HTMLElement) {
   const config: ListConfig = JSON.parse($('[data-exercise-config]', section).textContent!);
   const form = $<HTMLFormElement>('.filter-panel', section);
@@ -153,7 +280,7 @@ function setupList(section: HTMLElement) {
     $<HTMLButtonElement>('[data-share]', section).disabled = visible.length === 0;
     $<HTMLButtonElement>('[data-random]', section).disabled = filtered.length === 0;
     $<HTMLInputElement>('#random-count', section).max = String(Math.max(1, filtered.length));
-    if (writeUrl) updateUrl();
+    if (writeUrl) { updateUrl(); captureReadingProgress(); }
     refreshMath(list);
   }
   function reset() { form.reset(); selected = null; message.textContent = ''; update(); }

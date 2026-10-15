@@ -5,7 +5,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { BookRequest, CompileRequest, Course, PrintJob, PrintRequest, SolutionMode } from './types.js';
 
 /** Bump whenever PDF template/rendering semantics change. */
-export const PRINT_TEMPLATE_VERSION = '1';
+export const PRINT_TEMPLATE_VERSION = '2';
 export interface QueueConfig {
   stateDir: string; releasesDir: string; currentFile: string;
   maxParallel: number; maxQueued: number; maxActivePerSource: number;

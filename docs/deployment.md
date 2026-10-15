@@ -48,6 +48,8 @@ npm run build -- --content /content --out /releases --book --local-worker
 
 TeX 镜像首次构建需要下载 Debian 软件包，耗时和镜像体积明显高于纯网页镜像；后续内容更新不会重新安装这些依赖。镜像预装 Pandoc、XeLaTeX、ctex 和 Fandol 字体，运行时不下载字体和 TeX 包。
 
+打印模板沿用旧 `calculus-i/main.tex` 的基础排版：`book` 默认的 10pt、Letter 纸张、双面与奇数页开章，左右边距 2cm、上下边距 3cm，首行缩进 2em、段间距 0.5em；封面、目录和页眉页码沿用书籍类的布局。旧文件没有指定 A4，因此这里也不改为 A4。中文正文依次选择 Noto Serif SC、Noto Serif CJK SC、FandolSong；斜体使用 KaiTi，缺少时回退 FandolKai。题目保留课程稳定题号，解答和评语使用段首标题；文档章节使用正常的书籍章节编号，不把每道题和每种解答塞入目录。模板变更属于引擎更新，需要重建镜像并重新构建内容版本，已有 PDF 缓存不会被原地覆盖。
+
 构建器的根文件系统保持只读。Astro/Vite 的构建缓存由 Compose 放在 `/releases/.astro-cache`，镜像中的 `/app/.astro` 符号链接指向同一目录，与临时发布目录位于同一文件系统，避免原子 `rename` 跨挂载失败。构建结束后这些缓存仍属于引擎内部临时数据，不会进入版本目录。其余 `.astro` 临时目录和 `/tmp` 使用容器内存盘，若构建所需内容异常大，应先降低并发或调整内存盘上限。
 
 默认使用 Debian 官方软件源；若本地连接较慢，可在 `.env` 中设置 `APT_MIRROR=mirrors.tuna.tsinghua.edu.cn` 再构建。该选项只改变软件包镜像地址，保留 Debian 签名验证，不影响运行时服务。

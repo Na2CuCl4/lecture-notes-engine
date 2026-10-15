@@ -30,6 +30,7 @@ RUN sed -i "s/deb.debian.org/${APT_MIRROR}/g" /etc/apt/sources.list.d/debian.sou
     && apt-get install -y --no-install-recommends \
         ca-certificates \
         fontconfig \
+        fonts-noto-cjk \
         util-linux \
         pandoc \
         texlive-xetex \

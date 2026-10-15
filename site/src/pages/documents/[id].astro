@@ -6,5 +6,9 @@ const { document } = Astro.props;
 const chapter = chapterForDocument(document.id);
 ---
 <Layout title={document.title} activeChapter={chapter?.id} activeDocument={document.id}>
-  <div class="page-container document-page"><nav class="breadcrumbs" aria-label="当前位置"><a href={href()}>课程导览</a>{chapter && <><span aria-hidden="true">/</span><a href={href(`chapters/${chapter.id}/`)}>{chapter.title}</a></>}<span aria-hidden="true">/</span><span>知识点复习</span></nav><header class="page-heading"><span class="eyebrow">CONCEPTS & CONNECTIONS</span><h1>{document.title}</h1><div class="document-tags">{document.tags.map(tag => <span class="tag">{tag}</span>)}</div></header><article class="prose document-prose" data-math set:html={document.body.html}></article>{chapter && <div class="document-next"><div><span class="eyebrow">PUT IT INTO PRACTICE</span><h2>把理解带进习题</h2><p>独立尝试，再对照解答检查推理。</p></div><a class="button button-primary" href={href(`chapters/${chapter.id}/#exercises`)}>本章所有习题 →</a></div>}<footer class="page-footer"><a href={chapter ? href(`chapters/${chapter.id}/`) : href()}>← 返回{chapter ? '本章' : '课程'}导览</a><span>{course.title}</span></footer></div>
+  <div class="page-container document-page">
+    <nav class="breadcrumbs" aria-label="当前位置"><a href={href()}>课程导览</a>{chapter && <><span aria-hidden="true">/</span><a href={href(`chapters/${chapter.id}/`)}>第 {chapter.number} 章 {chapter.title}</a></>}<span aria-hidden="true">/</span><span aria-current="page">知识点复习</span></nav>
+    <header class="page-heading"><h1>{document.title}</h1><div class="document-tags">{document.tags.map(tag => <span class="tag">{tag}</span>)}</div></header>
+    <article class="prose document-prose" data-math set:html={document.body.html}></article>
+  </div>
 </Layout>

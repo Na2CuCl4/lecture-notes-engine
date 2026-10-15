@@ -3,13 +3,13 @@ import type { Problem } from '../../../src/types';
 import ProblemCard from './ProblemCard.astro';
 import PrintDialog from './PrintDialog.astro';
 import { course, safeJson } from '../lib/course';
-interface Props { problems: Problem[]; chapterId?: string; title: string; printTitle?: string; includeDocuments?: boolean; showChapter?: boolean; groups?: { title: string; problems: string[] }[]; }
-const { problems, chapterId, title, printTitle, includeDocuments = false, showChapter = false, groups = [] } = Astro.props;
+interface Props { problems: Problem[]; chapterId?: string; title: string; printTitle?: string; includeDocuments?: boolean; showChapter?: boolean; showHeading?: boolean; groups?: { title: string; problems: string[] }[]; }
+const { problems, chapterId, title, printTitle, includeDocuments = false, showChapter = false, showHeading = true, groups = [] } = Astro.props;
 const tags = [...new Set(problems.flatMap(problem => problem.tags))].sort((a, b) => a.localeCompare(b, 'zh'));
 const sources = [...new Set(problems.flatMap(problem => problem.sources))].sort((a, b) => a.localeCompare(b, 'zh'));
 ---
 <section class="exercise-section" id="exercises" data-exercise-list>
-  <div class="section-heading"><div><span class="eyebrow">PRACTICE & UNDERSTANDING</span><h2>{title}</h2></div><span class="section-count">{problems.length} 道习题</span></div>
+  {showHeading && <div class="section-heading"><h2>{title}</h2></div>}
   <div class="version-warning" role="status" hidden><p>此分享链接来自另一个内容版本。当前页面显示最新内容，打印前请确认使用当前版本。</p><button type="button" data-use-current>使用当前版本</button></div>
   <form class="filter-panel" aria-label="筛选习题">
     <label class="search-field"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg><span class="visually-hidden">搜索习题</span><input name="search" type="search" placeholder="搜索题目、知识点、解答…" autocomplete="off" /></label>

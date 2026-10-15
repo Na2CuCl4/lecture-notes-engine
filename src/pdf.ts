@@ -20,7 +20,9 @@ const templatePath = fileURLToPath(new URL('../templates/print.tex', import.meta
 const attr = (id = ''): [string, string[], [string, string][]] => [id, [], []];
 const text = (value: string): PandocNode[] => [{ t: 'Str', c: value }];
 const para = (value: string): PandocNode => ({ t: 'Para', c: text(value) });
-const heading = (level: number, title: string, id = ''): PandocNode => ({ t: 'Header', c: [level, attr(id), text(title)] });
+const heading = (level: number, title: string, id = '', unnumbered = false, unlisted = unnumbered): PandocNode => ({
+  t: 'Header', c: [level, [id, [...(unnumbered ? ['unnumbered'] : []), ...(unlisted ? ['unlisted'] : [])], []], text(title)],
+});
 const raw = (value: string): PandocNode => ({ t: 'RawBlock', c: ['latex', value] });
 
 /** Escape text inserted by the engine itself. Content prose is escaped by Pandoc. */
@@ -86,7 +88,7 @@ function problemTitle(problem: Problem): string {
 }
 
 function partBlocks(part: Part, fallbackTitle: string, level: number): PandocNode[] {
-  return [heading(level, part.title || fallbackTitle, part.id), ...copyBody(part.body, level + 1)];
+  return [heading(level, part.title || fallbackTitle, part.id, true), ...copyBody(part.body, level + 1)];
 }
 
 function solutionBlocks(problem: Problem, level: number): PandocNode[] {
@@ -114,8 +116,9 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
   const printed = new Set<string>();
   const endSolutions: { chapter: Chapter; problems: Problem[] }[] = [];
   for (const chapter of chapters) {
-    if (blocks.length) blocks.push(raw('\\clearpage'));
-    blocks.push(heading(1, `第 ${chapter.number} 章　${chapter.title}`, chapter.id), ...copyBody(chapter.body, 2));
+    // A chapter printed on its own still keeps its course number. Pandoc emits
+    // a real book chapter so the original chapter opening/layout applies.
+    blocks.push(raw(`\\setcounter{chapter}{${chapter.number - 1}}`), heading(1, chapter.title, chapter.id), ...copyBody(chapter.body, 2));
     if (book || ('includeDocuments' in request && request.includeDocuments)) {
       for (const id of chapter.documents) {
         const document = course.documents[id];
@@ -137,13 +140,15 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
     blocks.push(heading(2, book ? '所有习题' : '习题'));
     if (!problems.length) blocks.push(para('本次题单未收录习题。'));
     for (const problem of problems) {
-      blocks.push(raw('\\Needspace{7\\baselineskip}'), heading(3, problemTitle(problem), problem.id));
+      blocks.push(raw('\\Needspace{7\\baselineskip}'), heading(3, problemTitle(problem), problem.id, true));
       const metadata = [problem.difficulty === null ? '难度未标定' : `难度：${problem.difficulty}/5`,
         ...(problem.tags.length ? [`标签：${problem.tags.join('、')}`] : []),
         ...(problem.sources.length ? [`来源：${problem.sources.join('、')}`] : [])];
       blocks.push({ t: 'Para', c: [{ t: 'Emph', c: text(metadata.join('　')) }] }, ...copyBody(problem.body, 4));
-      if (request.solutions === 'inline') blocks.push(...solutionBlocks(problem, 4));
-      if (request.comments) blocks.push(...commentBlocks(problem, 4));
+      // Old solution/note environments used run-in paragraph headings, not
+      // another numbered subsection or a separate table-of-contents entry.
+      if (request.solutions === 'inline') blocks.push(...solutionBlocks(problem, 5));
+      if (request.comments) blocks.push(...commentBlocks(problem, 5));
     }
     if (request.solutions === 'end' && problems.some((problem) => problem.solutions.length)) endSolutions.push({ chapter, problems });
     if (book) {
@@ -170,12 +175,12 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
     }
   }
   if (endSolutions.length) {
-    blocks.push(raw('\\clearpage'), heading(1, '参考解答'));
+    blocks.push(heading(1, '参考解答', '', true, false));
     for (const entry of endSolutions) {
-      if (book) blocks.push(heading(2, `第 ${entry.chapter.number} 章　${entry.chapter.title}`));
+      if (book) blocks.push(heading(2, `第 ${entry.chapter.number} 章　${entry.chapter.title}`, '', true));
       for (const problem of entry.problems) {
         if (!problem.solutions.length) continue;
-        blocks.push(raw('\\Needspace{5\\baselineskip}'), heading(3, problemTitle(problem)), ...solutionBlocks(problem, 4));
+        blocks.push(raw('\\Needspace{5\\baselineskip}'), heading(3, problemTitle(problem), '', true), ...solutionBlocks(problem, 5));
       }
     }
   }
@@ -312,18 +317,21 @@ export async function buildTex(course: Course, request: CompileRequest, options:
     if (node.t === 'Math') validateMath(node.c[1], node.c[0].t === 'DisplayMath', config, 'PDF 数学公式');
   });
   await prepareImages(ast, options.contentDir, workDir);
-  const body = await run(process.env.PANDOC_BIN || 'pandoc', ['--from=json', '--to=latex', '--top-level-division=section', '--wrap=none', '--no-highlight'], {
+  const body = await run(process.env.PANDOC_BIN || 'pandoc', ['--from=json', '--to=latex', '--top-level-division=chapter', '--wrap=none', '--no-highlight'], {
     cwd: workDir, timeoutMs: options.timeoutMs ?? 30_000, input: JSON.stringify(ast), signal: options.signal,
   });
   const book = 'kind' in request;
   const chapter = !book && 'chapterId' in request ? course.chapters.find((item) => item.id === request.chapterId) : undefined;
   const title = book ? '完整讲义' : ('title' in request && request.title) || chapter?.title || '章节讲义';
-  const mode = { none: '仅题目', inline: '题后解答', end: '文末参考解答' }[request.solutions];
+  const date = new Date(course.builtAt);
+  if (Number.isNaN(date.getTime())) throw new Error('内容构建日期无效。');
+  const dateParts = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Shanghai', year: 'numeric', month: 'numeric', day: 'numeric' }).formatToParts(date);
+  const datePart = (type: string) => dateParts.find((part) => part.type === type)?.value;
   const replacements: Record<string, string> = {
     PDF_TITLE: escapeTex(`${course.title} · ${title}`), AUTHOR: escapeTex(course.author),
-    RUNNING_TITLE: escapeTex(course.title), COURSE_TITLE: escapeTex(course.title), PRINT_TITLE: escapeTex(title),
-    MODE_LABEL: escapeTex(`${mode}${request.comments ? ' · 含评注' : ''}`),
-    REVISION: escapeTex(course.revision.slice(0, 16)), MACROS: canonicalMacros(config), BODY: body,
+    COURSE_TITLE: escapeTex(course.title), PRINT_TITLE: escapeTex(title),
+    BUILD_DATE: `${datePart('year')} 年 ${datePart('month')} 月 ${datePart('day')} 日`,
+    MACROS: canonicalMacros(config), BODY: body,
   };
   const template = await readFile(templatePath, 'utf8');
   return template.replace(/@@([A-Z_]+)@@/g, (_match, key: string) => {

@@ -1,5 +1,5 @@
 ---
-import { course, href, assetHref, safeJson, firstHeadings } from '../lib/course';
+import { course, href, assetHref, safeJson, firstHeadings, readingPages } from '../lib/course';
 import '../styles/global.css';
 interface Props { title?: string; activeChapter?: string; activeDocument?: string; activeSet?: string; activeProblems?: boolean; }
 const { title, activeChapter, activeDocument, activeSet, activeProblems } = Astro.props;
@@ -26,32 +26,29 @@ const mathConfig = {
     <header class="topbar">
       <button class="icon-button menu-toggle" type="button" aria-label="展开或收起目录" aria-controls="course-sidebar" aria-expanded="true"><span aria-hidden="true">☰</span></button>
       <a class="topbar-brand" href={href()}>{course.title}</a>
-      <span class="topbar-caption">习题课笔记</span>
       <a class="download-link" href={assetHref('downloads/main.pdf')} download><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m-4-4 4 4 4-4M5 16v4h14v-4"/></svg><span>全文 PDF</span></a>
     </header>
     <button class="sidebar-scrim" aria-label="关闭目录" tabindex="-1"></button>
     <aside id="course-sidebar" class="sidebar" aria-label="课程目录">
       <button type="button" class="icon-button sidebar-close" aria-label="关闭目录">×</button>
-      <div class="sidebar-intro"><span class="eyebrow">LECTURE NOTES</span><a class="sidebar-title" href={href()}>{course.title}</a>{course.subtitle && <p>{course.subtitle}</p>}<p class="sidebar-author">{course.author}</p></div>
       <nav>
         <a class:list={['nav-overview', { active: !activeChapter }]} href={href()} aria-current={!activeChapter ? 'page' : undefined}><span>课程导览</span><span aria-hidden="true">↗</span></a>
         {course.chapters.map(chapter => <details class="nav-chapter" open={chapter.id === activeChapter || !activeChapter}>
-          <summary><span class="chapter-index">{String(chapter.number).padStart(2, '0')}</span><span>{chapter.title}</span><span class="chevron" aria-hidden="true">⌄</span></summary>
+          <summary><span class="chapter-index">{String(chapter.number).padStart(2, '0')}</span><span>{chapter.title}</span><span class="chevron" aria-hidden="true">▶</span></summary>
           <div class="nav-chapter-items">
-            <a class:list={['nav-item', { active: chapter.id === activeChapter && !activeDocument && !activeSet && !activeProblems }]} href={href(`chapters/${chapter.id}/`)}>本章导览</a>
+            <a class:list={['nav-item', { active: chapter.id === activeChapter && !activeDocument && !activeSet && !activeProblems }]} data-chapter-overview={chapter.id} href={href(`chapters/${chapter.id}/`)} aria-current={chapter.id === activeChapter && !activeDocument && !activeSet && !activeProblems ? 'page' : undefined}>本章导览</a>
             {chapter.documents.map(id => <details class="nav-document" open={id === activeDocument}>
-              <summary><a class:list={['nav-item', { active: id === activeDocument }]} href={href(`documents/${id}/`)} aria-current={id === activeDocument ? 'page' : undefined}>{course.documents[id].title}</a>{firstHeadings(id).length > 0 && <span class="chevron" aria-hidden="true">⌄</span>}</summary>
+              <summary><a class:list={['nav-item', { active: id === activeDocument }]} href={href(`documents/${id}/`)} aria-current={id === activeDocument ? 'page' : undefined}>{course.documents[id].title}</a>{firstHeadings(id).length > 0 && <span class="chevron" aria-hidden="true">▶</span>}</summary>
               {firstHeadings(id).length > 0 && <div class="nav-headings">{firstHeadings(id).map(heading => <a href={href(`documents/${id}/#${heading.id}`)}>{heading.text}</a>)}</div>}
             </details>)}
-            <a class:list={['nav-item', { active: chapter.id === activeChapter && activeProblems }]} href={href(`chapters/${chapter.id}/#exercises`)}>所有习题<span class="nav-count">{chapter.problems.length}</span></a>
-            {chapter.sets.map(id => <a class:list={['nav-item', { active: id === activeSet }]} href={href(`sets/${id}/`)} aria-current={id === activeSet ? 'page' : undefined}>{course.sets[id].title}<span class="nav-dot" aria-hidden="true"></span></a>)}
+            {chapter.sets.map(id => <a class:list={['nav-item', { active: id === activeSet }]} href={href(`sets/${id}/`)} aria-current={id === activeSet ? 'page' : undefined}><span>{course.sets[id].title}</span><span class="nav-count">{course.sets[id].problems.length}</span></a>)}
+            <a class:list={['nav-item', { active: chapter.id === activeChapter && activeProblems }]} data-chapter-exercises={chapter.id} href={href(`chapters/${chapter.id}/#exercises`)} aria-current={chapter.id === activeChapter && activeProblems ? 'page' : undefined}><span>所有习题</span><span class="nav-count">{chapter.problems.length}</span></a>
           </div>
         </details>)}
       </nav>
-      <div class="sidebar-footer"><span>从概念出发，沿证明前行。</span><span class="sidebar-footer-rule"></span><span>阅读 · 思考 · 练习</span></div>
     </aside>
     <main id="main-content" class="main-content" tabindex="-1"><slot /></main>
-    <script id="course-client-config" type="application/json" set:html={safeJson({ revision: course.revision, basePath: course.basePath, chapters: course.chapters.map(({ id, title }) => ({ id, title })) })}></script>
+    <script id="course-client-config" type="application/json" set:html={safeJson({ revision: course.revision, basePath: course.basePath, siteUrl: course.siteUrl, readingPages, chapters: course.chapters.map(({ id, title }) => ({ id, title })) })}></script>
     <script>
       import '../scripts/app';
     </script>

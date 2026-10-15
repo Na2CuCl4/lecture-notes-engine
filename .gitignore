@@ -4,6 +4,7 @@ site/.astro/
 site/dist/
 site/public/vendor/
 dist/
+output/
 .state/
 .work/
 .env

@@ -45,6 +45,8 @@ npm run dev -- --content /path/to/course --port 3000
 
 完整字段及支持的 Markdown 扩展见 [内容格式](docs/content-format.md)。[样例来源记录](docs/sample-provenance.md) 说明旧课程选材与迁移边界；这些是引擎验收样例，不是正式章节迁移或数学审校。
 
+课程首页的“继续阅读”使用当前浏览器的本地存储，记录最近阅读页面及位置；内容更新后，仍存在的页面可以继续阅读。浏览器禁止或清除本地存储时，按钮恢复为“开始阅读”。
+
 ```text
 course.yaml
 math/macros.tex

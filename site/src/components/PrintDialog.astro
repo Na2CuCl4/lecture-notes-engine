@@ -3,7 +3,7 @@ interface Props { chapterId?: string; includeDocuments?: boolean; }
 const { chapterId, includeDocuments = false } = Astro.props;
 ---
 <dialog class="print-dialog" aria-labelledby="print-title">
-  <div class="dialog-header"><div><span class="eyebrow">TAKE YOUR NOTES WITH YOU</span><h2 id="print-title">排版与打印</h2></div><button class="icon-button" data-print-close aria-label="关闭打印面板" type="button">×</button></div>
+  <div class="dialog-header"><h2 id="print-title">排版与打印</h2><button class="icon-button" data-print-close aria-label="关闭打印面板" type="button">×</button></div>
   <p class="print-summary"></p>
   <form class="print-options">
     <fieldset><legend>解答位置</legend><div class="radio-options"><label><input type="radio" name="print-solutions" value="none" checked /><span>仅题目</span></label><label><input type="radio" name="print-solutions" value="inline" /><span>题后解答</span></label><label><input type="radio" name="print-solutions" value="end" /><span>文末解答</span></label></div></fieldset>

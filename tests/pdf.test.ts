@@ -51,6 +51,28 @@ test('chapter print preserves selected order, stable numbers, and optional conte
   assert.doesNotMatch(serialized, /唯一文档|唯一解答|唯一评语|唯一题面-p3/);
 });
 
+test('standalone later chapter retains its course number without numbering problems twice', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'lecture-pdf-chapter-'));
+  try {
+    const course = fixture();
+    const selected = request({ chapterId: 'two', problemIds: ['p3'] });
+    const ast = buildPrintAst(course, selected);
+    const headers = allNodes(ast).filter((node) => node.t === 'Header');
+    assert.equal(headers[0].c[0], 1);
+    assert.deepEqual(headers[0].c[2], [{ t: 'Str', c: '连续' }]);
+    const problem = headers.find((node) => node.c[1][0] === 'p3')!;
+    assert.ok(problem.c[1][1].includes('unnumbered'));
+    assert.ok(problem.c[1][1].includes('unlisted'));
+    const solution = headers.find((node) => node.c[1][0] === 'p3-solution')!;
+    assert.equal(solution.c[0], 5);
+    const source = await buildTex(course, selected, { contentDir: dir, workDir: dir });
+    assert.match(source, /\\setcounter\{chapter\}\{1\}[\s\S]*\\chapter\{连续\}/);
+    assert.match(source, /\\subsection\*\{题 2\.1/);
+    assert.match(source, /\\paragraph\*\{直接证明\}/);
+    assert.doesNotMatch(source, /@@[A-Z_]+@@/);
+  } finally { await rm(dir, { recursive: true, force: true }); }
+});
+
 test('end answers are after all question bodies; source AST is immutable', () => {
   const course = fixture(); const before = JSON.stringify(course);
   const serialized = JSON.stringify(buildPrintAst(course, request({ solutions: 'end' })));
