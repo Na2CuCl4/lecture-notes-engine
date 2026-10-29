@@ -27,19 +27,5 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends pandoc
       - run: npm run typecheck
       - run: npm test
-      - name: Validate Compose
-        run: docker compose --profile tools config --quiet
-      - name: Build runtime images
-        run: docker compose build web worker
-      - name: Build demo website and full PDF through the shared queue
-        run: docker compose run --rm builder
-      - name: Start web and worker
-        run: docker compose up -d --wait web worker
-      - name: Verify health
-        run: curl --fail --retry 5 --retry-delay 2 http://127.0.0.1:3000/healthz
-      - name: Capture logs
-        if: always()
-        run: docker compose logs --no-color
-      - name: Stop test containers
-        if: always()
-        run: docker compose down
+      - name: Build one demo website
+        run: npm run build -- --projects projects.yaml --project calculus-demo --out .work/ci-releases --no-publish

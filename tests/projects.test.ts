@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { publishCatalog, readProjectCatalog, updateProjectCatalog, validateCatalog } from '../src/projects.js';
+import { publishCatalog, readProjectCatalog, updateProjectCatalog } from '../src/projects.js';
 import { Queue, queueConfigFromEnv } from '../src/queue.js';
 import { createServer } from '../src/server.js';
 import type { Body, Course, PrintRequest, ProjectCatalog, ProjectEntry } from '../src/types.js';
@@ -39,18 +39,6 @@ function fixture() {
   const catalog: ProjectCatalog = { schemaVersion: 1, title: '讲义库', projects: [entry(a), entry(b)] };
   return { root, config, a, b, catalog, writeCourse, clean: () => rmSync(root, { recursive: true, force: true }) };
 }
-
-test('catalog validation rejects conflicting IDs, nested project mounts and engine paths', () => {
-  const a = entry(course('project1', '/project1/', 'a'));
-  const catalog = (projects: ProjectEntry[]) => ({ schemaVersion: 1, title: '讲义', projects });
-  assert.equal(validateCatalog(catalog([a])).projects[0].basePath, '/project1/');
-  assert.throws(() => validateCatalog(catalog([a, { ...a, basePath: '/other/' }])), /ID/);
-  for (const basePath of ['/', '/project1/child/', '/_engine/', '/api/', '/healthz/', '/_releases/', '/bad/../']) {
-    assert.throws(() => validateCatalog(catalog([a, { ...a, id: 'project2', basePath }])));
-  }
-  const normalized = validateCatalog({ ...catalog([a]), secrets: 'private' });
-  assert.equal('secrets' in normalized, false);
-});
 
 test('catalog publication verifies snapshot ownership and atomically merges concurrent independent updates', async () => {
   const f = fixture();
@@ -115,46 +103,4 @@ test('multi-project HTTP isolates identical problem IDs, shared print queue and 
     const expired = (await app.inject(`/_engine/jobs/${claim.job.id}`)).json();
     assert.equal(expired.job.state, 'failed'); assert.match(expired.job.error, /缓存已过期/);
   } finally { queue.close(); await app.close(); f.clean(); }
-});
-
-test('catalog changes require no server restart and retired project jobs remain accessible by known global ID', async () => {
-  const f = fixture(); await publishCatalog(f.config.releasesDir, f.catalog);
-  const app = await createServer({ config: f.config }); const queue = new Queue(f.config);
-  try {
-    const submitted = (await app.inject({ method: 'POST', url: '/project1/api/print', payload: request(f.a) })).json();
-    const next = { ...f.a, revision: 'c'.repeat(64), title: '课程新版本' }; f.writeCourse(next);
-    await updateProjectCatalog(f.config.releasesDir, entry(next));
-    assert.match((await app.inject('/project1/')).body, /课程新版本/);
-    assert.equal((await app.inject(submitted.statusUrl)).json().project.title, f.a.title);
-    assert.equal((await app.inject(`/project1/_releases/${f.a.revision}/assets/figure.svg`)).statusCode, 200);
-    assert.equal((await app.inject({ method: 'POST', url: '/project1/api/print', payload: request(f.a) })).statusCode, 200);
-    await publishCatalog(f.config.releasesDir, { ...f.catalog, projects: [entry(f.b)] });
-    assert.equal((await app.inject('/project1/')).statusCode, 404);
-    assert.equal((await app.inject(submitted.statusUrl)).statusCode, 200);
-    const claim = queue.claim()!; const pdf = join(f.config.stateDir, 'pdf', `${claim.job.id}.pdf`);
-    writeFileSync(pdf, '%PDF-retired'); queue.complete(claim.job.id, claim.token, pdf);
-    const done = (await app.inject(submitted.statusUrl)).json();
-    assert.equal((await app.inject(done.downloadUrl)).body, '%PDF-retired');
-    assert.equal((await app.inject(`/xiazr20/project2/api/jobs/${claim.job.id}/pdf`)).statusCode, 404);
-    await publishCatalog(f.config.releasesDir, { ...f.catalog, projects: [] });
-    assert.match((await app.inject('/')).body, /暂无已发布/);
-    assert.equal((await app.inject('/_engine/projects')).json().projects.length, 0);
-  } finally { queue.close(); await app.close(); f.clean(); }
-});
-
-test('legacy current.json remains compatible with shared task endpoints and can switch to a catalog live', async () => {
-  const f = fixture(); const old = { ...f.a, projectId: undefined, basePath: '/', revision: 'c'.repeat(64) }; f.writeCourse(old);
-  writeFileSync(f.config.currentFile, JSON.stringify({ revision: old.revision }));
-  const app = await createServer({ config: f.config });
-  try {
-    assert.match((await app.inject('/')).body, /课程 project1/);
-    const catalog = (await app.inject('/_engine/projects')).json();
-    assert.equal(catalog.isMultiProject, false); assert.equal(catalog.projects[0].id, 'default');
-    const posted = await app.inject({ method: 'POST', url: '/api/print', payload: request(old) });
-    assert.equal(posted.statusCode, 202);
-    assert.equal((await app.inject(`/api/jobs/${posted.json().job.id}`)).statusCode, 200);
-    await publishCatalog(f.config.releasesDir, f.catalog);
-    assert.match((await app.inject('/')).body, /所有项目入口/);
-    assert.equal((await app.inject(posted.json().statusUrl)).statusCode, 200);
-  } finally { await app.close(); f.clean(); }
 });

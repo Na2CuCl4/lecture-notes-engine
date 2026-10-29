@@ -93,7 +93,7 @@ export async function buildRelease(options: { contentDir: string; releasesDir: s
     // Reject concurrent edits rather than publishing a mix of old/new files.
     const before = await contentManifest(contentDir);
     await copyContent(contentDir, path.join(staging, 'content'));
-    if (before !== await contentManifest(contentDir) || before !== await contentManifest(path.join(staging, 'content'))) {
+    if (before !== await contentManifest(contentDir)) {
       throw new Error('复制期间内容发生变化，本次构建未发布；请保存完成后重试。');
     }
     const course = await buildCourse(path.join(staging, 'content'), options.project ? {

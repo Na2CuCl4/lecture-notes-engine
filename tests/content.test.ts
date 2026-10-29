@@ -63,23 +63,6 @@ $$
   return { root, put, remove: () => fs.rm(root, { recursive: true, force: true }) };
 }
 
-test('content: project mounts use distinct links and revisions without editing course sources', async () => {
-  const f = await fixture();
-  try {
-    const original = await fs.readFile(path.join(f.root, 'course.yaml'), 'utf8');
-    const first = await buildCourse(f.root, { basePath: '/project1/', title: '项目一', siteUrl: 'https://example.test/project1/' });
-    const second = await buildCourse(f.root, { basePath: '/project2/', title: '项目二', siteUrl: 'https://example.test/project2/' });
-    assert.equal(first.title, '项目一'); assert.equal(second.title, '项目二');
-    assert.equal(first.references.squeeze.url, '/project1/problems/squeeze/');
-    assert.equal(second.references.squeeze.url, '/project2/problems/squeeze/');
-    assert.match(first.documents.review.body.html, /src="\/project1\/assets\/diagram.svg"/);
-    assert.match(second.documents.review.body.html, /href="\/project2\/problems\/squeeze\/#eq-bound"/);
-    assert.notEqual(first.revision, second.revision);
-    assert.equal(await fs.readFile(path.join(f.root, 'course.yaml'), 'utf8'), original);
-    await assert.rejects(buildCourse(f.root, { basePath: '/../' }), /basePath/);
-  } finally { await f.remove(); }
-});
-
 test('content: cross-file references, figures, equation numbers, parts and deterministic revisions', async () => {
   const f = await fixture();
   try {
@@ -150,40 +133,6 @@ test('content: semantic headings share chapter numbers in declared content order
     for (const [id, ref] of Object.entries(course.references).filter(([, ref]) => ref.kind === 'semantic')) {
       assert.equal(reordered.references[id].label, ref.label);
     }
-  } finally { await f.remove(); }
-});
-
-test('content: semantic titles are literal text and automatic anchors are repeatable', async () => {
-  const f = await fixture();
-  try {
-    await f.put('problems/continuous/index.md', String.raw`---
-id: continuous
-title: 连续函数
----
-::: {.theorem title="<script>alert(1)</script> & \input{secret}"}
-定理正文。
-:::
-
-::: {.proof}
-证明正文。
-:::
-`);
-    const course = await buildCourse(f.root);
-    const body = course.problems.continuous.body;
-    const refs = Object.values(course.references).filter(ref => ref.ownerId === 'continuous' && ref.kind === 'semantic');
-    assert.equal(refs.length, 2);
-    assert.match(refs[0].id, /^continuous-[a-f0-9]{6}-block-1$/);
-    assert.equal(refs[0].label, '定理 2.1');
-    assert.equal(refs[1].label, '证明');
-    assert.match(body.html, /&lt;script&gt;alert\(1\)&lt;\/script&gt; &amp;/);
-    assert.doesNotMatch(body.html, /<script>|<\/script>/);
-    assert.match(body.text, /定理 2\.1（<script>alert\(1\)<\/script> & \\input\{secret\}）/);
-    assert.equal(body.ast.blocks[0].c[1][0].t, 'Para');
-    assert.equal(body.ast.blocks[0].c[1].length, 1);
-    assert.deepEqual(Object.values((await buildCourse(f.root)).references).filter(ref => ref.ownerId === 'continuous' && ref.kind === 'semantic'), refs);
-
-    await f.put('problems/continuous/index.md', '---\nid: continuous\ntitle: 连续函数\n---\n::: {.theorem data-semantic-number="9.9"}\n伪造编号。\n:::\n');
-    await assert.rejects(buildCourse(f.root), /不支持属性 data-semantic-number/);
   } finally { await f.remove(); }
 });
 

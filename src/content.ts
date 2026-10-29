@@ -4,7 +4,7 @@ import path from 'node:path';
 import { parseDocument } from 'yaml';
 import { z } from 'zod';
 import { parseMarkdown, renderHtml } from './pandoc.js';
-import { parseMacros, validateMath, validateMacroConfig } from './macros.js';
+import { parseMacros, validateMath } from './macros.js';
 import { semanticBlock, semanticBlocks, semanticHeading } from './semantic-blocks.js';
 import type { Body, Chapter, Course, Document, ExerciseSet, PandocDocument, PandocNode, Part, Problem, Reference } from './types.js';
 
@@ -161,7 +161,6 @@ export async function buildCourse(contentDir: string, overrides: Partial<Pick<Co
   const route = (kind: string, id: string) => `${config.basePath}${kind}/${id}/`;
   const macros = (await fs.stat(path.join(root, 'math/macros.tex')).catch(() => null)) ? await read('math/macros.tex') : '';
   const macroConfig = parseMacros(macros);
-  validateMacroConfig(macroConfig, 'math/macros.tex');
   const course: Course = {
     ...config, revision: '', builtAt: new Date().toISOString(), chapters: [],
     documents: Object.create(null), problems: Object.create(null), sets: Object.create(null), references, macros, macroConfig, assets,

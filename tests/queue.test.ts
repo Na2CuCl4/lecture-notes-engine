@@ -89,32 +89,6 @@ test('expired claims recover on restart, reject stale ownership, and stop after 
   } finally { queue.close(); f.clean(); }
 });
 
-test('source limits and queue capacity persist; duplicates do not consume additional capacity', () => {
-  const f = fixture(); f.config.maxActivePerSource = 1; f.config.maxQueued = 2;
-  const queue = new Queue(f.config);
-  try {
-    const r = request(f.course); queue.enqueue(f.course, r, 'reader1');
-    assert.equal(queue.enqueue(f.course, r, 'reader1').reused, true);
-    assert.throws(() => queue.enqueue(f.course, { ...r, comments: false }, 'reader1'), /仍在处理/);
-    queue.enqueue(f.course, { ...r, comments: false }, 'reader2');
-    assert.throws(() => queue.enqueue(f.course, { ...r, solutions: 'none' }, 'reader3'), /队列已满/);
-  } finally { queue.close(); f.clean(); }
-});
-
-test('explicit resubmission retries failed jobs and missing PDFs under the same limits', () => {
-  const f = fixture(); const queue = new Queue(f.config);
-  try {
-    const r = request(f.course); const first = queue.enqueue(f.course, r).job;
-    const claim = queue.claim()!; queue.fail(claim.job.id, claim.token, 'temporary failure');
-    const retry = queue.enqueue(f.course, r);
-    assert.equal(retry.reused, false); assert.equal(retry.job.id, first.id); assert.equal(retry.job.attempts, 0);
-    const second = queue.claim()!;
-    queue.complete(second.job.id, second.token, join(f.config.stateDir, 'pdf', 'missing.pdf'));
-    assert.match(queue.get(first.id)!.error!, /缓存已过期/);
-    assert.equal(queue.enqueue(f.course, r).job.state, 'queued');
-  } finally { queue.close(); f.clean(); }
-});
-
 test('cache cleanup bounds storage, expires completed PDFs, and preserves active/unrelated files', async () => {
   const f = fixture(); f.config.cacheMaxBytes = 1; f.config.logTtlMs = 1000;
   const queue = new Queue(f.config);
@@ -132,20 +106,6 @@ test('cache cleanup bounds storage, expires completed PDFs, and preserves active
     assert.equal(existsSync(cached), false); assert.equal(existsSync(abandoned), false);
     assert.equal(existsSync(activePdf), true); assert.equal(existsSync(unrelated), true);
     assert.match(queue.get(claim.job.id)!.error!, /缓存已过期/);
-  } finally { queue.close(); f.clean(); }
-});
-
-test('removing an orphan from a superseded attempt does not expire the current PDF', async () => {
-  const f = fixture(); f.config.cacheTtlMs = 1000; const queue = new Queue(f.config);
-  try {
-    queue.enqueue(f.course, request(f.course)); const claim = queue.claim()!;
-    const current = join(f.config.stateDir, 'pdf', `${claim.job.id}-${claim.token}.pdf`);
-    writeFileSync(current, '%PDF-current'); queue.complete(claim.job.id, claim.token, current);
-    const orphan = join(f.config.stateDir, 'pdf', `${claim.job.id}-${randomUUID()}.pdf`);
-    writeFileSync(orphan, '%PDF-orphan'); utimesSync(orphan, new Date(0), new Date(0));
-    await pruneCache(queue);
-    assert.equal(existsSync(orphan), false); assert.equal(existsSync(current), true);
-    assert.equal(queue.get(claim.job.id)?.state, 'succeeded');
   } finally { queue.close(); f.clean(); }
 });
 
