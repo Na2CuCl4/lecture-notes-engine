@@ -4,6 +4,8 @@
 
 课程内容与引擎分开维护。这个仓库保存程序、Docker 配置、打印模板和少量示例；正式内容仓库只需 Markdown、图片、课程配置及固定的引擎版本。
 
+网页正文使用随站点打包的 Noto Serif SC 可变字体（Noto Serif CJK SC 的简体中文网页字库），通过固定版本的 `@fontsource-variable/noto-serif-sc` 提供。WOFF2 按字符范围分片加载，支持 200–900 字重，使用 `font-display: swap`，运行时无需访问外部字体服务或依赖本机安装。字体由 Astro 打包到当前发布版本的静态资源中；SIL Open Font License 随站点保存在 `font-licenses/noto-serif-sc-OFL.txt`。
+
 ## 快速开始
 
 ### Docker（推荐部署方式）

@@ -1,4 +1,6 @@
-@charset "UTF-8";:root{--paper:#faf9f5;--surface:#fffefa;--ink:#24312d;--muted:#747d74;--line:#e2e6dc;--green:#173d36;--green-mid:#2c6355;--green-pale:#edf2e9;--gold:#b28a4d;--sidebar:288px;--topbar:66px;--sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;--serif:"Noto Serif CJK SC","Source Han Serif SC","Songti SC",SimSun,Georgia,serif;font-family:var(--sans);color:var(--ink);background:var(--paper);font-synthesis:none;text-rendering:optimizeLegibility}
+@charset "UTF-8";
+@import "@fontsource-variable/noto-serif-sc/wght.css";
+:root{--paper:#faf9f5;--surface:#fffefa;--ink:#24312d;--muted:#747d74;--line:#e2e6dc;--green:#173d36;--green-mid:#2c6355;--green-pale:#edf2e9;--gold:#b28a4d;--sidebar:288px;--topbar:66px;--sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;--serif:"Noto Serif SC Variable","Noto Serif CJK SC","Source Han Serif SC","Songti SC",SimSun,Georgia,serif;font-family:var(--sans);color:var(--ink);background:var(--paper);font-synthesis:none;text-rendering:optimizeLegibility}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{margin:0;font-size:16px}
