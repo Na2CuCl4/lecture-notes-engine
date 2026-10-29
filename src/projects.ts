@@ -1,50 +1,39 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { access, mkdir, open, rename, rm, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { setTimeout } from 'node:timers/promises';
-import { basePrefix, loadCourse, QueueError, queueConfigFromEnv, validRevision } from './queue.js';
+import { isDeepStrictEqual } from 'node:util';
+import { loadCourse, QueueError, queueConfigFromEnv, validRevision } from './queue.js';
+import { z } from 'zod';
+import { projectIdentity, validateProjectPaths } from './project-schema.js';
 import type { QueueConfig } from './queue.js';
 import type { ProjectCatalog, ProjectEntry } from './types.js';
 
-const reserved = new Set(['api', 'healthz', '_engine', '_releases', '_portal', '_projects', '_astro', 'assets', 'vendor', 'downloads', 'fragments']);
-const validId = /^[a-z0-9]+(?:[a-z0-9_-]*[a-z0-9])?$/;
+const titleSchema = z.string().trim().min(1);
+const entrySchema = z.object({
+  ...projectIdentity, title: titleSchema, revision: z.string().refine(validRevision, '项目版本无效'),
+  subtitle: z.string().optional(), author: z.string().optional(),
+});
+const catalogSchema = z.object({
+  schemaVersion: z.literal(1), title: titleSchema, projects: z.array(entrySchema),
+});
 
-/** Only public, portable project metadata belongs in the published catalog. */
+/** Validate catalog data once, when it enters through disk or publication. */
 export function validateCatalog(value: unknown): ProjectCatalog {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('项目目录必须为对象');
-  const data = value as Record<string, unknown>;
-  if (data.schemaVersion !== 1 || typeof data.title !== 'string' || !data.title.trim() || !Array.isArray(data.projects)) {
-    throw new Error('项目目录需要 schemaVersion: 1、title 和 projects');
-  }
-  const ids = new Set<string>(); const prefixes: string[] = [];
-  const projects = data.projects.map((value): ProjectEntry => {
-    if (!value || typeof value !== 'object' || Array.isArray(value)) throw new Error('项目条目必须为对象');
-    const entry = value as Record<string, unknown>;
-    if (typeof entry.id !== 'string' || entry.id.length > 64 || !validId.test(entry.id) || ids.has(entry.id)) throw new Error('项目 ID 无效或重复');
-    if (typeof entry.title !== 'string' || !entry.title.trim()) throw new Error(`项目 ${entry.id} 缺少标题`);
-    if (typeof entry.basePath !== 'string' || !/^\/(?:[a-zA-Z0-9_-]+\/)+$/.test(entry.basePath)) {
-      throw new Error(`项目 ${entry.id} 的 basePath 必须是非根目录的 /分段/ 形式`);
-    }
-    const prefix = basePrefix(entry.basePath);
-    if (reserved.has(prefix.split('/')[1]) || prefixes.some(other => prefix === other || prefix.startsWith(other + '/') || other.startsWith(prefix + '/'))) {
-      throw new Error(`项目 ${entry.id} 的发布路径与其他项目重叠或使用了保留路径`);
-    }
-    if (!validRevision(entry.revision)) throw new Error(`项目 ${entry.id} 的版本无效`);
-    for (const field of ['subtitle', 'author']) if (entry[field] !== undefined && typeof entry[field] !== 'string') throw new Error(`项目 ${entry.id} 的 ${field} 必须为文字`);
-    ids.add(entry.id); prefixes.push(prefix);
-    return { id: entry.id, title: entry.title, basePath: `${prefix}/`, revision: entry.revision,
-      ...(typeof entry.subtitle === 'string' ? { subtitle: entry.subtitle } : {}),
-      ...(typeof entry.author === 'string' ? { author: entry.author } : {}) };
-  });
-  return { schemaVersion: 1, title: data.title, projects };
+  const catalog = catalogSchema.parse(value);
+  validateProjectPaths(catalog.projects);
+  return catalog;
 }
 
-/** Missing catalog deliberately means the pre-existing single-course mode. */
 export function readProjectCatalog(config: Pick<QueueConfig, 'releasesDir'>): ProjectCatalog | undefined {
-  const file = join(config.releasesDir, 'projects.json');
-  if (!existsSync(file)) return undefined;
-  try { return validateCatalog(JSON.parse(readFileSync(file, 'utf8'))); }
+  let input: string;
+  try { input = readFileSync(join(config.releasesDir, 'projects.json'), 'utf8'); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw new QueueError('项目目录无法读取，请联系维护者。', 503);
+  }
+  try { return validateCatalog(JSON.parse(input)); }
   catch { throw new QueueError('项目目录无效，请联系维护者重新发布。', 503); }
 }
 
@@ -65,12 +54,11 @@ async function withPublishLock<T>(releasesDir: string, action: () => Promise<T>)
   finally { await handle.close(); await rm(lock, { force: true }); }
 }
 
-async function writeCatalog(releasesDir: string, input: ProjectCatalog): Promise<ProjectCatalog> {
-  const catalog = validateCatalog(input);
+async function writeCatalog(releasesDir: string, catalog: ProjectCatalog): Promise<ProjectCatalog> {
   const config = { ...queueConfigFromEnv(), releasesDir };
   for (const project of catalog.projects) {
     const course = loadCourse(project.revision, config);
-    if (course.projectId !== project.id || basePrefix(course.basePath) !== basePrefix(project.basePath)) {
+    if (course.projectId !== project.id || course.basePath !== project.basePath) {
       throw new Error(`项目 ${project.id} 的版本归属或发布路径不匹配`);
     }
     await access(join(releasesDir, project.revision, 'site', 'index.html'));
@@ -86,23 +74,26 @@ async function writeCatalog(releasesDir: string, input: ProjectCatalog): Promise
 
 /** Publish all projects together after every requested release has built successfully. */
 export async function publishCatalog(releasesDir: string, catalog: ProjectCatalog, expectedCatalog?: ProjectCatalog | null): Promise<void> {
+  const validated = validateCatalog(catalog);
   await withPublishLock(releasesDir, async () => {
     if (expectedCatalog !== undefined) {
       const current = readProjectCatalog({ releasesDir }) ?? null;
-      const expected = expectedCatalog === null ? null : validateCatalog(expectedCatalog);
-      if (JSON.stringify(current) !== JSON.stringify(expected)) throw new Error('构建期间项目目录已被其他发布更新；本次未覆盖，请重新构建发布。');
+      if (!isDeepStrictEqual(current, expectedCatalog)) throw new Error('构建期间项目目录已被其他发布更新；本次未覆盖，请重新构建发布。');
     }
-    await writeCatalog(releasesDir, catalog);
+    await writeCatalog(releasesDir, validated);
   });
 }
 
 /** Serialize read/merge/write so concurrent independent project builds cannot lose updates. */
 export async function updateProjectCatalog(releasesDir: string, project: ProjectEntry, title?: string): Promise<ProjectCatalog> {
+  const entry = entrySchema.parse(project);
+  const catalogTitle = title === undefined ? undefined : titleSchema.parse(title);
   return withPublishLock(releasesDir, async () => {
     const existing = readProjectCatalog({ releasesDir });
     const projects = [...(existing?.projects ?? [])];
-    const index = projects.findIndex(entry => entry.id === project.id);
-    if (index < 0) projects.push(project); else projects[index] = project;
-    return writeCatalog(releasesDir, { schemaVersion: 1, title: title ?? existing?.title ?? '讲义项目', projects });
+    const index = projects.findIndex(project => project.id === entry.id);
+    if (index < 0) projects.push(entry); else projects[index] = entry;
+    validateProjectPaths(projects);
+    return writeCatalog(releasesDir, { schemaVersion: 1, title: catalogTitle ?? existing?.title ?? '讲义项目', projects });
   });
 }

@@ -21,7 +21,7 @@ function fixture(): Course {
   const course: Course = {
     schemaVersion: 1, engineVersion: 'test', revision: 'fixed-revision', builtAt: '2026-10-15T00:00:00Z',
     title: '高等微积分(1)', author: 'Author', language: 'zh-CN', basePath: '/course/', siteUrl: 'https://example.org/course/',
-    macros: '', macroConfig: {}, assets: [],
+    macros: '', macroConfig: {},
     chapters: [
       { id: 'one', title: '极限', number: 1, body: body('章一说明'), documents: ['intro'], problems: ['p1', 'p2'], sets: ['tutorial'] },
       { id: 'two', title: '连续', number: 2, body: body('章二说明'), documents: [], problems: ['p3'], sets: ['tutorial'] },
@@ -64,7 +64,7 @@ test('equations and theorem blocks retain fixed numbers and titles', () => {
   const course = fixture();
   course.problems.p1.body.ast.blocks.push(
     { t: 'Div', c: [['eq-one', ['equation'], [['data-equation-number', '1.3']]], [{ t: 'Para', c: [{ t: 'Math', c: [{ t: 'DisplayMath' }, 'a=b'] }] }]] },
-    { t: 'Div', c: [['th-squeeze', ['theorem'], [['title', '夹逼定理'], ['data-semantic-number', '1.7']]], [{ t: 'Para', c: [{ t: 'Str', c: 'statement' }] }]] },
+    { t: 'Div', c: [['th-squeeze', ['theorem'], [['data-semantic-title', '夹逼定理'], ['data-semantic-number', '1.7']]], [{ t: 'Para', c: [{ t: 'Str', c: 'statement' }] }]] },
   );
   const serialized = JSON.stringify(buildPrintAst(course, request()));
   assert.match(serialized, /tag\{1\.3\}/);

@@ -89,7 +89,7 @@ function checkSafe(input: string, source: string): void {
   const clean = withoutComments(input);
   if (clean.includes('^^')) failure(source, '不支持 TeX 的 ^^ 字符编码，请直接使用对应字符。');
   if (clean.includes('\u0000')) failure(source, '公式含有无效的 NUL 字符。');
-  for (const name of commands(clean)) {
+  for (const { name } of commandTokens(clean)) {
     if (forbidden.has(name)) {
       failure(source, `不允许命令 \\${name}；公式只能使用固定的数学命令，公共宏请在 math/macros.tex 中声明。`);
     }
@@ -188,29 +188,18 @@ export function parseMacros(input: string): MacroConfig {
       if (input[cursor] === '[') failure(source, '不支持带默认值的可选宏参数，请改为固定参数。', input, cursor);
     }
     const body = group();
-    checkSafe(body, `${source} 中的 \\${name}`);
     macros[name] = count ? [body, count] : body;
   }
   validateMacroConfig(macros, source);
   return macros;
 }
 
-const validatedConfigurations = new Set<string>();
-
-/** Validate externally loaded configuration as well as parsed macros.tex data. */
-export function validateMacroConfig(macros: MacroConfig, source = 'math/macros.tex'): void {
-  if (!macros || typeof macros !== 'object' || Array.isArray(macros)) failure(source, '宏配置必须是对象。');
+/** Check parsed declarations once before using them to validate expressions. */
+function validateMacroConfig(macros: MacroConfig, source: string): void {
   const entries = Object.entries(macros);
   if (entries.length > 256) failure(source, '宏数量超过 256 个的限制。');
-  const key = JSON.stringify(entries);
-  if (key.length > 128 * 1024) failure(source, '宏配置超过 128 KiB 的限制。');
-  if (validatedConfigurations.has(key)) return;
   const dependency = new Map<string, string[]>();
   for (const [name, value] of entries) {
-    if (!/^[A-Za-z]+$/.test(name) || protectedNames.has(name)) failure(source, `宏名 ${name} 无效或属于保留命令。`);
-    if (!(typeof value === 'string' || (Array.isArray(value) && value.length === 2 && typeof value[0] === 'string' && Number.isInteger(value[1]) && value[1] >= 0 && value[1] <= 9))) {
-      failure(source, `宏 \\${name} 的值应为字符串，或 [字符串, 0～9 的参数数量]。`);
-    }
     const body = typeof value === 'string' ? value : value[0];
     const count = typeof value === 'string' ? 0 : value[1];
     const clean = withoutComments(body);
@@ -251,8 +240,6 @@ export function validateMacroConfig(macros: MacroConfig, source = 'math/macros.t
     const body = typeof value === 'string' ? value : value[0];
     checkKnownCommands(body, input, `${source} 中的 \\${name}`);
   }
-  if (validatedConfigurations.size >= 32) validatedConfigurations.clear();
-  validatedConfigurations.add(key);
 }
 
 function convertMath(expression: string, display: boolean, macros: MacroConfig, source: string): void {
@@ -277,14 +264,12 @@ function convertMath(expression: string, display: boolean, macros: MacroConfig, 
 
 export function validateMath(expression: string, display: boolean, macros: MacroConfig, source: string): void {
   if (expression.length > 256 * 1024) failure(source, '单个公式超过 256 KiB 的限制。');
-  validateMacroConfig(macros);
   checkSafe(expression, source);
   convertMath(expression, display, macros, source);
 }
 
 /** Emit a validated preamble without copying arbitrary source-file contents. */
 export function canonicalMacros(macros: MacroConfig): string {
-  validateMacroConfig(macros);
   return Object.entries(macros).map(([name, value]) => {
     const body = typeof value === 'string' ? value : value[0];
     const count = typeof value === 'string' ? 0 : value[1];

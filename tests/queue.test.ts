@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, mkdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,8 +11,8 @@ import type { Body, Course, PrintRequest } from '../src/types.js';
 const body: Body = { ast: { 'pandoc-api-version': [1, 23], meta: {}, blocks: [] }, html: '', text: '', headings: [], source: 'test.md' };
 function course(): Course {
   return {
-    schemaVersion: 1, engineVersion: 'test-1', revision: 'a'.repeat(32), builtAt: new Date().toISOString(), title: '测试课程', author: '测试',
-    language: 'zh-CN', basePath: '/notes/', siteUrl: 'https://example.test/notes/', macros: '', macroConfig: {}, references: {}, assets: [],
+    schemaVersion: 1, engineVersion: 'test-1', projectId: 'notes', revision: 'a'.repeat(64), builtAt: new Date().toISOString(), title: '测试课程', author: '测试',
+    language: 'zh-CN', basePath: '/notes/', siteUrl: 'https://example.test/notes/', macros: '', macroConfig: {}, references: {},
     documents: { doc: { id: 'doc', title: '复习', tags: [], body } }, sets: {},
     chapters: [
       { id: 'one', title: '第一章', number: 1, body, documents: ['doc'], problems: ['p1', 'p2'], sets: [] },
@@ -27,12 +26,12 @@ function request(c = course()): PrintRequest {
 }
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'lecture-queue-'));
-  const config = { ...queueConfigFromEnv(), stateDir: join(root, 'state'), releasesDir: join(root, 'releases'), currentFile: join(root, 'releases', 'current.json'), leaseMs: 1000 };
+  const config = { ...queueConfigFromEnv(), stateDir: join(root, 'state'), releasesDir: join(root, 'releases'), leaseMs: 1000 };
   const c = course();
   const release = join(config.releasesDir, c.revision);
   mkdirSync(join(release, 'site'), { recursive: true });
   writeFileSync(join(release, 'course.json'), JSON.stringify(c));
-  writeFileSync(config.currentFile, JSON.stringify({ revision: c.revision }));
+  writeFileSync(join(config.releasesDir, 'projects.json'), JSON.stringify({ schemaVersion: 1, title: '讲义', projects: [{ id: 'notes', title: c.title, basePath: c.basePath, revision: c.revision }] }));
   writeFileSync(join(release, 'site', 'index.html'), '<p>课程页面</p>');
   return { config, course: c, root, clean: () => rmSync(root, { recursive: true, force: true }) };
 }
@@ -41,7 +40,7 @@ test('cache keys retain question order, options, content revision and engine ver
   const c = course(); const r = request(c); const original = printCacheKey(c, r);
   assert.notEqual(original, printCacheKey(c, { ...r, problemIds: [...r.problemIds].reverse() }));
   assert.notEqual(original, printCacheKey(c, { ...r, comments: false }));
-  assert.notEqual(original, printCacheKey(c, { ...r, revision: 'b'.repeat(32) }));
+  assert.notEqual(original, printCacheKey(c, { ...r, revision: 'b'.repeat(64) }));
   assert.notEqual(original, printCacheKey({ ...c, engineVersion: 'test-2' }, r));
   assert.equal(original, printCacheKey(c, { solutions: r.solutions, comments: r.comments, chapterId: r.chapterId, includeDocuments: r.includeDocuments, revision: r.revision, problemIds: r.problemIds }));
 });
@@ -123,13 +122,14 @@ test('API serves mounted course, validates jobs, blocks premature download and f
     assert.equal(invalid.statusCode, 400);
     const book = await app.inject({ method: 'POST', url: '/notes/api/print', payload: { revision: f.course.revision, kind: 'book' } });
     assert.equal(book.statusCode, 400);
-    const next = { ...f.course, revision: 'b'.repeat(32) }; const nextDir = join(f.config.releasesDir, next.revision);
+    const next = { ...f.course, revision: 'b'.repeat(64) }; const nextDir = join(f.config.releasesDir, next.revision);
     mkdirSync(join(nextDir, 'site'), { recursive: true });
     writeFileSync(join(nextDir, 'course.json'), JSON.stringify(next)); writeFileSync(join(nextDir, 'site', 'index.html'), '<p>新版本</p>');
-    writeFileSync(f.config.currentFile, JSON.stringify({ revision: next.revision }));
+    writeFileSync(join(f.config.releasesDir, 'projects.json'), JSON.stringify({ schemaVersion: 1, title: '讲义', projects: [{ id: 'notes', title: next.title, basePath: next.basePath, revision: next.revision }] }));
     assert.match((await app.inject('/notes/')).body, /新版本/);
     assert.equal(loadCourse(f.course.revision, f.config).revision, f.course.revision);
     assert.throws(() => loadCourse('../secret', f.config), /无效/);
+    assert.throws(() => loadCourse('a'.repeat(32), f.config), /无效/);
     const oldAssets = join(f.config.releasesDir, f.course.revision, 'site', 'assets');
     mkdirSync(oldAssets); writeFileSync(join(oldAssets, 'figure.svg'), '<svg></svg>');
     const asset = await app.inject(`/notes/_releases/${f.course.revision}/assets/figure.svg`);

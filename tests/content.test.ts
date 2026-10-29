@@ -81,7 +81,6 @@ test('content: cross-file references, figures, equation numbers, parts and deter
     assert.match(course.problems.squeeze.body.html, /data-equation-number="1.2"/);
     assert.doesNotMatch(JSON.stringify(course.problems.squeeze.body.ast), /__equation/);
     assert.match(JSON.stringify(course.problems.squeeze.body.ast), /ref:limit-definition/);
-    assert.ok(course.assets.some(asset => asset.source === 'assets/diagram.svg'));
     assert.equal((await buildCourse(f.root)).revision, course.revision);
     await f.put('assets/diagram.svg', '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 10 10"><circle cx="5" cy="5" r="2"/></svg>');
     assert.notEqual((await buildCourse(f.root)).revision, course.revision);

@@ -1,6 +1,6 @@
 @charset "UTF-8";
 @import "@fontsource-variable/noto-serif-sc/wght.css";
-:root{--paper:#faf9f5;--surface:#fffefa;--ink:#24312d;--muted:#747d74;--line:#e2e6dc;--green:#173d36;--green-mid:#2c6355;--green-pale:#edf2e9;--gold:#b28a4d;--sidebar:288px;--topbar:66px;--sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;--serif:"Noto Serif SC Variable","Noto Serif CJK SC","Source Han Serif SC","Songti SC",SimSun,Georgia,serif;font-family:var(--sans);color:var(--ink);background:var(--paper);font-synthesis:none;text-rendering:optimizeLegibility}
+:root{--paper:#faf9f5;--surface:#fffefa;--ink:#24312d;--muted:#747d74;--line:#e2e6dc;--green:#173d36;--green-mid:#2c6355;--green-pale:#edf2e9;--sidebar:288px;--topbar:66px;--sans:Inter,"PingFang SC","Microsoft YaHei",system-ui,sans-serif;--serif:"Noto Serif SC Variable","Noto Serif CJK SC","Source Han Serif SC","Songti SC",SimSun,Georgia,serif;font-family:var(--sans);color:var(--ink);background:var(--paper);font-synthesis:none;text-rendering:optimizeLegibility}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;scroll-padding-top:90px}
 body{margin:0;font-size:16px}
@@ -83,8 +83,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .button-primary:hover{background:#28584b}
 .button-subtle{background:var(--surface);border-color:#d9dfd2;color:#4a6053}
 .button-subtle:hover{background:var(--green-pale);border-color:#a9bba3}
-.text-link{font-size:14px;color:#526d59;display:inline-flex;gap:14px}
-.text-link:hover{color:var(--green);text-decoration:underline;text-underline-offset:5px}
 .course-meta{display:flex;align-items:center;gap:28px;border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:21px 0;font-size:14px;color:var(--muted);flex-wrap:wrap}
 .course-meta>span:not(:last-child){border-right:1px solid var(--line);padding-right:28px}
 .course-meta strong{font-family:Georgia,serif;font-size:20px;font-weight:400;color:#47624e;margin-right:4px}
@@ -215,10 +213,9 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .prose hr{border:0;border-top:1px solid var(--line);margin:2em 0}
 .prose .theorem,.prose .definition,.prose .lemma,.prose .corollary,.prose .proposition,.prose .example,.prose .exercise{margin:1.25em 0;padding:18px 22px;background:#f0f4e9;border-left:3px solid #809c6a}
 .prose .proof{margin:1em 0;padding:8px 0 8px 18px;border-left:2px solid #d9e2ce}
-.prose .note,.prose .remark,.prose .warning,.prose .tip{margin:1em 0;padding:15px 20px;background:#f8f4e8;border-left:2px solid #c4ac77}
-.prose .semantic-block{scroll-margin-top:92px}
+.prose .note,.prose .remark,.prose .warning{margin:1em 0;padding:15px 20px;background:#f8f4e8;border-left:2px solid #c4ac77}
 .prose .semantic-title{font-size:16px;font-weight:600;line-height:1.7;margin:0 0 .6em;color:#314d37}
-.prose .note>.semantic-title,.prose .remark>.semantic-title,.prose .warning>.semantic-title,.prose .tip>.semantic-title{color:#806a3d}
+.prose .note>.semantic-title,.prose .remark>.semantic-title,.prose .warning>.semantic-title{color:#806a3d}
 .prose .equation{position:relative;display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:10px}
 .prose .equation:after{content:"(" attr(data-equation-number) ")";font-family:var(--serif);font-size:14px;color:#697660}
 .prose .equation>p{margin:0;min-width:0}
@@ -231,7 +228,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .print-dialog::backdrop{background:#12281f66;backdrop-filter:blur(3px)}
 .dialog-header{display:flex;align-items:flex-start;gap:15px;justify-content:space-between}
 .dialog-header h2{font-family:var(--serif);font-weight:500;font-size:26px;margin:8px 0 16px}
-.dialog-header .eyebrow{font-size:14px}
 .print-summary{font-size:14px;line-height:1.8;color:#78856c;margin-bottom:23px}
 .print-options fieldset{border:0;padding:0;margin:0 0 19px}
 .print-options legend{font-size:14px;font-weight:600;margin-bottom:12px}
@@ -245,7 +241,7 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .print-error{font-size:14px;color:#9b593a;background:#fbefe7;border:1px solid #efd7c7;padding:13px;margin-top:16px;border-radius:4px;line-height:1.8}
 .print-jobs{margin-top:19px;display:flex;flex-direction:column;gap:9px}
 .print-job{padding:13px 14px;background:#f1f4ea;border-radius:4px;display:flex;align-items:center;gap:15px;justify-content:space-between;border:1px solid #e1e8d7}
-.print-job h3{font-size:14px;font-weight:500;line-height:1.6}
+.print-job h3{font-size:16px;font-weight:500;line-height:1.6}
 .print-job p{font-size:14px;color:#7f8e70;line-height:1.8;margin-top:4px}
 .print-job .button{padding:8px 11px;min-height:32px;font-size:14px}
 .print-history-dialog{width:min(650px,calc(100vw - 30px))}
@@ -255,7 +251,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .print-history-footer .text-button{flex-shrink:0}
 .print-job-text{min-width:0;overflow-wrap:anywhere}
 .print-job .print-job-project{font-size:14px;color:var(--green-mid);margin:0 0 3px}
-.print-job h3{font-size:16px}
 .print-job>.button{flex-shrink:0}
 .print-submitted{margin-top:18px;color:var(--green-mid)}
 .version-warning{border:1px solid #e8d5ae;background:#fcf4e4;color:#967742;padding:14px 17px;font-size:14px;line-height:1.8;margin-bottom:17px;border-radius:4px}
@@ -281,7 +276,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .hero-actions{gap:17px}
 }
 @media(max-width:980px){.page-container{padding-left:27px;padding-right:27px}
-.course-hero{padding:0 0 32px}
 .hero-copy>p{max-width:490px}
 .hero-copy h1{font-size:37px}
 .chapter-grid{gap:13px}
@@ -296,14 +290,12 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .filter-fields{gap:10px}
 .filter-fields>label{flex-basis:calc(50% - 10px)}
 .filter-fields>.text-button{padding:4px 0}
-.prose{font-size:16px}
 .problem-card{padding:22px 20px 0}
 .problem-notes{margin:0 -20px}
 .problem-notes summary{padding:12px 20px}
 .detail-content{padding:6px 20px 20px}
 .problem-header{gap:10px}
 .problem-actions{gap:8px}
-.difficulty{font-size:14px}
 }
 @media(max-width:760px){:root{--topbar:60px;--sidebar:280px}
 .topbar{padding:0 16px 0 11px;gap:10px}
@@ -330,7 +322,6 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .hero-copy>p{font-size:14px;max-width:440px}
 .hero-actions{margin-top:25px;gap:20px}
 .hero-actions .button{font-size:14px}
-.text-link{font-size:14px}
 .course-meta{padding:17px 0;gap:18px;font-size:14px}
 .course-meta>span:not(:last-child){padding-right:18px}
 .course-meta strong{font-size:18px}
@@ -361,7 +352,7 @@ details[open]>summary>.chevron{transform:rotate(90deg)}
 .problem-notes{margin:0 -19px}
 .problem-notes summary{padding:12px 19px}
 .detail-content{padding:7px 19px 21px}
-.prose{font-size:16px;line-height:1.95}
+.prose{line-height:1.95}
 .prose h2{font-size:22px}
 .prose h3{font-size:19px}
 .prose .theorem,.prose .definition,.prose .lemma,.prose .corollary,.prose .proposition,.prose .example,.prose .exercise{padding:16px}

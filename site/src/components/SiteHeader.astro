@@ -3,7 +3,7 @@ import { course, href, assetHref, safeJson } from '../lib/course';
 interface Props { portal?: boolean }
 const { portal = false } = Astro.props;
 const title = portal ? '课程项目' : course.title;
-const config = { portal, ...(!portal ? { project: { id: course.projectId || 'default', title: course.title, basePath: course.basePath || '/' } } : {}) };
+const config = { portal, ...(!portal ? { project: { id: course.projectId!, title: course.title, basePath: course.basePath || '/' } } : {}) };
 ---
 <header class="topbar">
   {!portal && <button class="icon-button menu-toggle" type="button" aria-label="展开或收起目录" aria-controls="course-sidebar" aria-expanded="true"><span aria-hidden="true">☰</span></button>}

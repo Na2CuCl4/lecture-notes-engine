@@ -18,7 +18,6 @@ x-runtime: &runtime
     HOST: 0.0.0.0
     PORT: "3000"
     RELEASES_DIR: /releases
-    CURRENT_FILE: /releases/current.json
     STATE_DIR: /state
     ASTRO_CACHE_DIR: /tmp/lecture-notes-astro
     PRINT_CONCURRENCY: ${PRINT_CONCURRENCY:-1}
@@ -88,7 +87,6 @@ services:
     command: ["npm", "run", "build", "--", "--projects", "/projects.yaml", "--out", "/releases", "--book", "--local-worker"]
     environment:
       <<: *environment
-      CONTENT_DIR: /content
       # Keep Astro's prerender scratch space on the releases volume. Astro
       # renames generated assets into the output tree and cannot cross a mount.
       ASTRO_CACHE_DIR: /releases/.astro-cache
@@ -103,13 +101,6 @@ services:
       - type: bind
         source: ./examples
         target: /examples
-        read_only: true
-        bind:
-          create_host_path: false
-      # Retained for explicit legacy --content /content builds.
-      - type: bind
-        source: ${CONTENT_PATH:-./examples/calculus}
-        target: /content
         read_only: true
         bind:
           create_host_path: false

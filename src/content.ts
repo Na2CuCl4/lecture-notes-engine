@@ -91,7 +91,6 @@ export async function buildCourse(contentDir: string, overrides: Partial<Pick<Co
   const originals = new Map<string, Buffer>();
   const registry = new Map<string, string>();
   const pending: PendingBody[] = [];
-  const assets: Course['assets'] = [];
   const references: Record<string, Reference> = Object.create(null);
   const visitedResources = new Set<string>();
 
@@ -154,7 +153,7 @@ export async function buildCourse(contentDir: string, overrides: Partial<Pick<Co
 
   const sourceConfig = metadata(configSchema, yaml(await read('course.yaml'), 'course.yaml'), 'course.yaml');
   const deployment = metadata(configSchema.pick({ basePath: true, siteUrl: true, title: true }).partial().strict(), overrides, '项目配置');
-  const config = metadata(configSchema, { ...sourceConfig, ...Object.fromEntries(Object.entries(deployment).filter(([, value]) => value !== undefined)) }, '项目配置');
+  const config = { ...sourceConfig, ...Object.fromEntries(Object.entries(deployment).filter(([, value]) => value !== undefined)) } as typeof sourceConfig;
   if (!/^\/(?:[a-zA-Z0-9_-]+\/)*$/.test(config.basePath)) fail('course.yaml', 'basePath 必须是 / 或 /分段/ 形式，不含查询、空格或 ..');
   if (!/^https?:\/\//.test(config.siteUrl)) fail('course.yaml', 'siteUrl 只支持 http(s)');
   unique(config.chapters, 'course.yaml', 'chapters');
@@ -163,7 +162,7 @@ export async function buildCourse(contentDir: string, overrides: Partial<Pick<Co
   const macroConfig = parseMacros(macros);
   const course: Course = {
     ...config, revision: '', builtAt: new Date().toISOString(), chapters: [],
-    documents: Object.create(null), problems: Object.create(null), sets: Object.create(null), references, macros, macroConfig, assets,
+    documents: Object.create(null), problems: Object.create(null), sets: Object.create(null), references, macros, macroConfig,
   };
 
   const chapterFiles = new Map<string, { source: string; data: z.infer<typeof chapterSchema>; markdown: string }>();
@@ -234,7 +233,6 @@ export async function buildCourse(contentDir: string, overrides: Partial<Pick<Co
         const relative = slash(path.normalize(path.join(path.dirname(source), partPath)));
         if (!relative.startsWith(`problems/${data.id}/`) || !relative.endsWith('.md')) fail(source, `解答/评语必须是同一题目目录内的 Markdown：${partPath}`);
         if (usedProblemFiles.has(relative)) fail(source, `文件重复使用：${relative}`);
-        await safePath(relative, source);
         usedProblemFiles.add(relative);
         const item = await readItem(relative);
         const part = metadata(partSchema, item.meta, relative);
@@ -290,7 +288,6 @@ export async function buildCourse(contentDir: string, overrides: Partial<Pick<Co
         || externalCss) fail(source, 'SVG 必须是无脚本、无外部资源的静态图片');
     }
     originals.set(source, data);
-    assets.push({ source, path: source, digest: digest(data) });
     visitedResources.add(source);
   }
 

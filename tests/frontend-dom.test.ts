@@ -56,7 +56,7 @@ function fixture() {
     { path: '/course/chapters/one/', anchors: ['main-content', 'exercises', ...problems.flatMap(problem => problem.anchors)] },
     ...problems.map(problem => ({ path: `/course/problems/${problem.id}/`, anchors: problem.anchors })),
   ] };
-  const list = { title: '所有习题', chapterId: 'one', includeDocuments: true, revision, problems, groups: [{ title: '第一组', problems: problems.slice(0, 12).map(problem => problem.id) }, { title: '第二组', problems: problems.slice(12).map(problem => problem.id) }], fragmentBase: `/course/_releases/${revision}/fragments/problems/`, showChapter: false, standalone: false };
+  const list = { title: '所有习题', problems, groups: [{ title: '第一组', problems: problems.slice(0, 12).map(problem => problem.id) }, { title: '第二组', problems: problems.slice(12).map(problem => problem.id) }], fragmentBase: `/course/_releases/${revision}/fragments/problems/`, showChapter: false };
   window.document.body.innerHTML = `<button class="menu-toggle" aria-expanded="true"></button><button class="sidebar-scrim"></button><aside id="course-sidebar"><button class="sidebar-close"></button><a href="/course/">overview</a></aside><main id="main-content"><div class="page-container"><section id="exercises" data-exercise-list>
     <div class="version-warning" hidden><button data-use-current>use current</button></div>
     <form class="filter-panel"><input name="search"><select name="tag"><option value=""></option><option>first</option><option>second</option></select><input name="source"><input name="difficulty"><input name="solutions"><button type="button" class="reset-filters">reset</button></form>

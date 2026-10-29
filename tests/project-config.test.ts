@@ -39,6 +39,8 @@ test('project config: duplicate IDs, path collisions and reserved root prefixes 
       [{ id: 'one', content: 'content', basePath: '/' }],
       [{ id: 'one', content: 'content', basePath: '/course/' }, { id: 'two', content: 'content', basePath: '/course/child/' }],
       [{ id: 'one', content: 'content', basePath: '/same/' }, { id: 'two', content: 'content', basePath: '/same/' }],
+      [{ id: 'api', content: 'content' }],
+      [{ id: 'one', content: 'content', basePath: '/API/' }],
       ...['api', 'healthz', '_engine', '_releases', '_portal', '_projects', '_astro', 'assets', 'vendor', 'downloads', 'fragments'].map(prefix => [{ id: 'one', content: 'content', basePath: `/${prefix}/` }]),
     ]) {
       await f.put(projects);

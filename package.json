@@ -8,7 +8,6 @@
   },
   "scripts": {
     "check": "tsx src/cli.ts check",
-    "content:check": "tsx src/cli.ts check",
     "build": "tsx src/cli.ts build",
     "dev": "tsx src/cli.ts dev",
     "start": "tsx src/server.ts",

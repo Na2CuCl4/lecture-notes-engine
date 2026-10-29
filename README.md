@@ -39,7 +39,7 @@ projects:
     siteUrl: https://example.com/calculus-i/
 ```
 
-`content` 相对清单文件解析；`basePath` 默认 `/<id>/`。修改清单后需重启开发服务。
+所有课程均通过项目清单接入；单门课程也保留一个项目条目。`content` 相对清单文件解析，`basePath` 默认 `/<id>/`。修改清单后需重启开发服务。
 
 课程由文档、题目、习题集和章节组成。题目通过稳定 ID 复用，解答与评语分文件维护，显示编号由章节顺序生成。目录结构、元数据和 Markdown 扩展见 [内容格式](docs/content-format.md)。
 

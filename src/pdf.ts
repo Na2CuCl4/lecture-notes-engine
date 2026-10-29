@@ -213,10 +213,7 @@ export function buildPrintAst(course: Course, request: CompileRequest): PandocDo
     const properties = Object.fromEntries(node.c[0][2]);
     if (kind === 'print-problem') wrapTheorem(node, 'lectureproblem', properties['data-problem-number'], properties.title, 'lectureproblem');
     else if (semanticBlock(kind)) {
-      // Historical releases predate semantic numbering. Preserve their unnumbered
-      // headings instead of assigning fresh numbers that disagree with their web page.
-      const legacy = semanticBlock(kind)!.numbered && !properties['data-semantic-number'];
-      wrapTheorem(node, `lecture${kind}${legacy ? 'unnumbered' : ''}`, properties['data-semantic-number'], properties['data-semantic-title'] || properties.title);
+      wrapTheorem(node, `lecture${kind}`, properties['data-semantic-number'], properties['data-semantic-title']);
     }
   });
   const firstBody = chapters[0]?.body || Object.values(course.documents)[0]?.body;
@@ -335,7 +332,7 @@ export async function buildTex(course: Course, request: CompileRequest, options:
 }
 
 /** Compile with one global time budget. Never invoke a shell or download packages. */
-export async function compilePdf(course: Course, request: CompileRequest, options: PdfOptions): Promise<{ durationMs: number; pages?: number }> {
+export async function compilePdf(course: Course, request: CompileRequest, options: PdfOptions): Promise<void> {
   const started = Date.now();
   const timeout = options.timeoutMs ?? ('kind' in request ? 600_000 : 180_000);
   const remaining = () => timeout - (Date.now() - started);
@@ -370,8 +367,6 @@ export async function compilePdf(course: Course, request: CompileRequest, option
     await mkdir(dirname(output), { recursive: true });
     if (output !== generated) await copyFile(generated, output);
     await writeFile(logPath, log.join('\n'), 'utf8');
-    const pages = /Output written on .*?\((\d+) pages?\b/s.exec(result)?.[1];
-    return { durationMs: Date.now() - started, ...(pages ? { pages: Number(pages) } : {}) };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     log.push(message);

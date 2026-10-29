@@ -2,7 +2,7 @@ import { PRINT_HISTORY_KEY, restorePrintHistory, mergePrintHistory, savedPrintJo
 
 interface GlobalConfig { portal?: boolean; project?: JobProject }
 interface ProjectInfo extends JobProject { subtitle?: string; author?: string; revision: string }
-interface ProjectCatalog { title: string; projects: ProjectInfo[]; isMultiProject: boolean }
+interface ProjectCatalog { title: string; projects: ProjectInfo[] }
 let started = false;
 let history: PrintHistory = { version: 1, clearedAt: 0, jobs: [] };
 let config: GlobalConfig = {};
@@ -29,24 +29,6 @@ function commit(original: SavedPrintJob, patch: Partial<SavedPrintJob>) {
   if (!current || current.savedAt !== original.savedAt) return;
   Object.assign(current, patch, { savedAt: Math.max(Date.now(), history.clearedAt + 1, current.savedAt + 1) });
   persist(); renderHistory();
-}
-function migrateLegacyHistory() {
-  try {
-    const keys = Array.from({ length: sessionStorage.length }, (_, index) => sessionStorage.key(index)!).filter(key => key?.startsWith('lecture-notes-jobs:'));
-    for (const key of keys) {
-      let values: unknown;
-      try { values = JSON.parse(sessionStorage.getItem(key) || 'null'); } catch { continue; }
-      if (!Array.isArray(values)) continue;
-      const basePath = key.slice('lecture-notes-jobs:'.length).replace(/:[^:]*$/, '') || '/';
-      const project = config.project && config.project.basePath.replace(/\/$/, '') === basePath.replace(/\/$/, '') ? config.project
-        : { id: 'legacy', title: basePath === '/' ? '课程' : basePath.replace(/^\/|\/$/g, ''), basePath };
-      for (const value of values) {
-        const saved = savedPrintJob(value, { title: value?.title || '打印题单', project });
-        if (saved && !currentJob(saved.id)) history.jobs.push(saved);
-      }
-      if (persist()) sessionStorage.removeItem(key);
-    }
-  } catch { /* A disabled session cache must not affect the new task history. */ }
 }
 export function registerPrintJob(result: PrintResult, fallback: { title: string; project: JobProject }): boolean {
   startGlobalUI();
@@ -171,7 +153,7 @@ async function loadProjects() {
     const heading = $('[data-portal-title]'); if (heading) { heading.textContent = title; document.title = title; }
     const picker = $<HTMLDetailsElement>('[data-project-picker]');
     const fallback = $('[data-project-fallback]');
-    if (picker && catalog.isMultiProject) {
+    if (picker) {
       picker.hidden = false; if (fallback) fallback.hidden = true;
       const links = $('[data-project-links]')!; links.replaceChildren();
       const all = document.createElement('a'); all.href = '/'; all.textContent = '所有项目'; if (config.portal) all.setAttribute('aria-current', 'page'); links.append(all);
@@ -195,7 +177,7 @@ export function startGlobalUI() {
   if (started) return;
   started = true;
   try { config = JSON.parse($('#global-client-config')?.textContent || '{}'); } catch { config = {}; }
-  history = loadHistory(); migrateLegacyHistory(); renderHistory(); schedulePoll();
+  history = loadHistory(); renderHistory(); schedulePoll();
   $('[data-print-history-open]')?.addEventListener('click', showHistory);
   const dialog = $<HTMLDialogElement>('[data-print-history-dialog]');
   $('[data-print-history-close]')?.addEventListener('click', () => dialog?.close());

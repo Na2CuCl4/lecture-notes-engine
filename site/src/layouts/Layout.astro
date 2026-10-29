@@ -45,7 +45,7 @@ const mathConfig = {
       </nav>
     </aside>
     <main id="main-content" class="main-content" tabindex="-1"><slot /></main>
-    <script id="course-client-config" type="application/json" set:html={safeJson({ projectId: course.projectId || 'default', title: course.title, revision: course.revision, basePath: course.basePath, siteUrl: course.siteUrl, readingPages, chapters: course.chapters.map(({ id, title }) => ({ id, title })) })}></script>
+    <script id="course-client-config" type="application/json" set:html={safeJson({ projectId: course.projectId!, title: course.title, revision: course.revision, basePath: course.basePath, siteUrl: course.siteUrl, readingPages, chapters: course.chapters.map(({ id, title }) => ({ id, title })) })}></script>
     <script>
       import '../scripts/app';
     </script>

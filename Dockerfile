@@ -10,7 +10,6 @@ ENV NODE_ENV=production \
     HOST=0.0.0.0 \
     PORT=3000 \
     RELEASES_DIR=/releases \
-    CURRENT_FILE=/releases/current.json \
     STATE_DIR=/state
 WORKDIR /app
 # Named volumes inherit these ownerships on their first mount. Nothing needs to
@@ -41,8 +40,7 @@ RUN sed -i "s/deb.debian.org/${APT_MIRROR}/g" /etc/apt/sources.list.d/debian.sou
     && fc-cache -f \
     && kpsewhich ctexart.cls \
     && kpsewhich FandolSong-Regular.otf
-ENV CONTENT_DIR=/content \
-    TEXMFVAR=/state/texmf-var \
+ENV TEXMFVAR=/state/texmf-var \
     TEXMFCONFIG=/state/texmf-config \
     TEXMFHOME=/state/texmf-home
 USER node

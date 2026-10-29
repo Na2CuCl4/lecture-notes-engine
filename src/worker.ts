@@ -91,7 +91,7 @@ async function execute(queue: Queue, claim: Claim, shutdown?: AbortSignal): Prom
     await rm(workDir, { recursive: true, force: true });
   }
 }
-export async function runWorker(options: { config?: QueueConfig; signal?: AbortSignal; once?: boolean } = {}): Promise<void> {
+export async function runWorker(options: { config?: QueueConfig; signal?: AbortSignal } = {}): Promise<void> {
   const queue = new Queue(options.config ?? queueConfigFromEnv());
   const active = new Set<Promise<void>>();
   let nextCleanup = 0;
@@ -113,7 +113,6 @@ export async function runWorker(options: { config?: QueueConfig; signal?: AbortS
         const promise = execute(queue, claim, options.signal).catch(error => console.error('[worker] task cleanup failed:', error)).finally(() => active.delete(promise));
         active.add(promise);
       }
-      if (options.once) { await Promise.all(active); break; }
       await poll();
     }
   } finally {

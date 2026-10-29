@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { publishCatalog, readProjectCatalog, updateProjectCatalog } from '../src/projects.js';
 import { Queue, queueConfigFromEnv } from '../src/queue.js';
 import { createServer } from '../src/server.js';
+import { publishProjectRelease } from '../src/cli.js';
 import type { Body, Course, PrintRequest, ProjectCatalog, ProjectEntry } from '../src/types.js';
 
 const body: Body = { ast: { 'pandoc-api-version': [1, 23], meta: {}, blocks: [] }, html: '', text: '', headings: [], source: 'test.md' };
@@ -14,7 +15,7 @@ function course(id: string, basePath: string, digit: string): Course {
     title: `课程 ${id}`, subtitle: `简介 ${id}`, author: '测试', language: 'zh-CN', basePath, siteUrl: `https://example.test${basePath}`,
     chapters: [{ id: 'chapter', title: '同名章节', number: 1, body, documents: [], problems: ['problem'], sets: [] }], documents: {}, sets: {},
     problems: { problem: { id: 'problem', title: '同名题目', tags: [], sources: [], difficulty: 1, chapterId: 'chapter', number: '1.1', body, solutions: [], comments: [] } },
-    references: {}, macros: '', macroConfig: {}, assets: [] };
+    references: {}, macros: '', macroConfig: {} };
 }
 function entry(course: Course): ProjectEntry {
   return { id: course.projectId!, title: course.title, basePath: course.basePath, revision: course.revision, subtitle: course.subtitle, author: course.author };
@@ -24,7 +25,7 @@ function request(course: Course): PrintRequest {
 }
 function fixture() {
   const root = mkdtempSync(join(tmpdir(), 'lecture-projects-'));
-  const config = { ...queueConfigFromEnv(), stateDir: join(root, 'state'), releasesDir: join(root, 'releases'), currentFile: join(root, 'releases', 'current.json') };
+  const config = { ...queueConfigFromEnv(), stateDir: join(root, 'state'), releasesDir: join(root, 'releases') };
   function writeCourse(course: Course) {
     const release = join(config.releasesDir, course.revision);
     for (const directory of ['assets', 'portal', 'fragments/problems/problem']) mkdirSync(join(release, 'site', directory), { recursive: true });
@@ -45,6 +46,11 @@ test('catalog publication verifies snapshot ownership and atomically merges conc
   try {
     assert.equal(readProjectCatalog(f.config), undefined);
     await publishCatalog(f.config.releasesDir, f.catalog, null);
+    const target = { id: f.a.projectId!, basePath: f.a.basePath, contentDir: f.root };
+    await publishProjectRelease(f.config.releasesDir, f.a.revision, target, f.catalog.title);
+    await assert.rejects(publishProjectRelease(f.config.releasesDir, '../secret', target, f.catalog.title), /无效/);
+    await assert.rejects(publishProjectRelease(f.config.releasesDir, f.b.revision, target, f.catalog.title), /不匹配/);
+    await assert.rejects(publishProjectRelease(f.config.releasesDir, f.a.revision, { ...target, basePath: '/different/' }, f.catalog.title), /不匹配/);
     const original = readFileSync(join(f.config.releasesDir, 'projects.json'), 'utf8');
     await assert.rejects(publishCatalog(f.config.releasesDir, { ...f.catalog, projects: [{ ...entry(f.a), revision: f.b.revision }] }), /归属/);
     await assert.rejects(publishCatalog(f.config.releasesDir, { ...f.catalog, projects: [{ ...entry(f.a), revision: 'e'.repeat(64) }] }), /不存在/);
@@ -65,12 +71,16 @@ test('multi-project HTTP isolates identical problem IDs, shared print queue and 
   try {
     const home = await app.inject('/'); assert.equal(home.statusCode, 200); assert.match(home.body, /所有项目入口/);
     assert.equal(home.headers['cache-control'], 'no-cache');
-    const catalog = await app.inject('/_engine/projects'); assert.equal(catalog.json().isMultiProject, true);
+    const catalog = await app.inject('/_engine/projects'); assert.equal(catalog.statusCode, 200);
     assert.equal(catalog.json().projects.length, 2); assert.equal(catalog.headers['cache-control'], 'no-cache');
     assert.equal((await app.inject('/project1')).headers.location, '/project1/');
     assert.match((await app.inject('/project1/')).body, /课程 project1/);
     assert.match((await app.inject('/xiazr20/project2/')).body, /课程 project2/);
     assert.equal((await app.inject('/project10/')).statusCode, 404);
+    assert.equal((await app.inject('/project1/api/health')).statusCode, 404);
+    for (const payload of [null, {}, { revision: '../secret' }, { revision: 'a'.repeat(32) }]) {
+      assert.equal((await app.inject({ method: 'POST', url: '/project1/api/print', headers: { 'content-type': 'application/json' }, payload: JSON.stringify(payload) })).statusCode, 400);
+    }
     const submittedA = await app.inject({ method: 'POST', url: '/project1/api/print', payload: request(f.a) });
     const submittedB = await app.inject({ method: 'POST', url: '/xiazr20/project2/api/print', payload: request(f.b) });
     assert.equal(submittedA.statusCode, 202); assert.equal(submittedB.statusCode, 202);

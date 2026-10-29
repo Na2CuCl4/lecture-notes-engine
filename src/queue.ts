@@ -7,7 +7,7 @@ import type { BookRequest, CompileRequest, Course, PrintJob, PrintRequest, Solut
 /** Bump whenever PDF template/rendering semantics change. */
 export const PRINT_TEMPLATE_VERSION = '3';
 export interface QueueConfig {
-  stateDir: string; releasesDir: string; currentFile: string;
+  stateDir: string; releasesDir: string;
   maxParallel: number; maxQueued: number; maxActivePerSource: number;
   maxProblems: number; leaseMs: number; maxAttempts: number;
   timeoutMs: number; bookTimeoutMs: number;
@@ -24,7 +24,6 @@ export function queueConfigFromEnv(): QueueConfig {
   return {
     stateDir: resolve(process.env.STATE_DIR ?? '.state'),
     releasesDir,
-    currentFile: resolve(process.env.CURRENT_FILE ?? join(releasesDir, 'current.json')),
     maxParallel: positive(process.env.PRINT_CONCURRENCY, 1, 'PRINT_CONCURRENCY'),
     maxQueued: positive(process.env.PRINT_MAX_QUEUED, 30, 'PRINT_MAX_QUEUED'),
     maxActivePerSource: positive(process.env.PRINT_MAX_ACTIVE_PER_SOURCE, 3, 'PRINT_MAX_ACTIVE_PER_SOURCE'),
@@ -43,19 +42,14 @@ export class QueueError extends Error {
   constructor(message: string, public statusCode = 400) { super(message); }
 }
 export function validRevision(value: unknown): value is string {
-  return typeof value === 'string' && /^(?:[a-f0-9]{32}|[a-f0-9]{64})$/.test(value);
+  return typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 }
 // Snapshots are immutable. Keep two revisions to cover a publish transition without
 // synchronously reparsing the complete book for every CSS/font/health request.
 const courseCache = new Map<string, Course>();
-export function loadCourse(revision: string | undefined, config: QueueConfig = queueConfigFromEnv()): Course {
-  let requested = revision;
-  if (requested === undefined) {
-    try { requested = JSON.parse(readFileSync(config.currentFile, 'utf8')).revision; }
-    catch { throw new QueueError('尚无已发布的课程版本，请先运行内容构建。', 503); }
-  }
-  if (!validRevision(requested)) throw new QueueError('无效的课程版本。');
-  const snapshot = join(config.releasesDir, requested, 'course.json');
+export function loadCourse(revision: string, config: QueueConfig = queueConfigFromEnv()): Course {
+  if (!validRevision(revision)) throw new QueueError('无效的课程版本。');
+  const snapshot = join(config.releasesDir, revision, 'course.json');
   const cached = courseCache.get(snapshot);
   if (cached && existsSync(snapshot)) {
     courseCache.delete(snapshot); courseCache.set(snapshot, cached);
@@ -64,17 +58,12 @@ export function loadCourse(revision: string | undefined, config: QueueConfig = q
   let course: Course;
   try { course = JSON.parse(readFileSync(snapshot, 'utf8')); }
   catch { throw new QueueError('课程版本不存在或已清理，请刷新页面后重试。', 404); }
-  if (course.schemaVersion !== 1 || course.revision !== requested || !Array.isArray(course.chapters) || !course.problems || !course.engineVersion) {
+  if (course.schemaVersion !== 1 || course.revision !== revision || !Array.isArray(course.chapters) || !course.problems || !course.engineVersion || typeof course.projectId !== 'string') {
     throw new QueueError('课程快照无效，请联系维护者重新构建。', 503);
   }
   courseCache.set(snapshot, course);
   while (courseCache.size > 2) courseCache.delete(courseCache.keys().next().value!);
   return course;
-}
-export function basePrefix(basePath: string): string {
-  const base = '/' + basePath.replace(/^\/+|\/+$/g, '');
-  if (!/^\/[a-zA-Z0-9/_-]*$/.test(base)) throw new Error('basePath 只能包含字母、数字、下划线、连字符及斜杠');
-  return base === '/' ? '' : base;
 }
 export function validatePrintRequest(input: unknown, course: Course, maxProblems = 500): PrintRequest {
   if (!input || typeof input !== 'object' || Array.isArray(input)) throw new QueueError('打印请求必须为对象。');
@@ -143,10 +132,6 @@ export class Queue {
       CREATE INDEX IF NOT EXISTS jobs_ready ON jobs(state, priority, created_at);
       CREATE INDEX IF NOT EXISTS jobs_source ON jobs(source, state);
       CREATE TABLE IF NOT EXISTS settings (name TEXT PRIMARY KEY, value INTEGER NOT NULL);`);
-    this.transaction(() => {
-      const columns = this.db.prepare('PRAGMA table_info(jobs)').all() as Row[];
-      if (!columns.some(column => column.name === 'slot')) this.db.exec('ALTER TABLE jobs ADD COLUMN slot INTEGER');
-    });
     // One persistent limit is shared even if processes accidentally receive different environment values.
     this.db.prepare('INSERT OR IGNORE INTO settings(name,value) VALUES (?,?)').run('max_parallel', config.maxParallel);
     const stored = this.db.prepare('SELECT value FROM settings WHERE name=?').get('max_parallel') as Row;
@@ -170,7 +155,6 @@ export class Queue {
     });
   }
   enqueue(course: Course, request: CompileRequest, source = 'cli'): { job: PrintJob; reused: boolean } {
-    if (request.revision !== course.revision) throw new QueueError('课程版本不匹配。');
     const key = printCacheKey(course, request);
     return this.transaction(() => {
       this.recoverExpiredUnsafe(Date.now());
@@ -211,11 +195,6 @@ export class Queue {
         .get(row.priority, row.priority, row.created_at, row.created_at, (this.db.prepare('SELECT rowid FROM jobs WHERE id=?').get(id) as Row).rowid) as Row).n);
     }
     return job;
-  }
-  counts(): Record<PrintJob['state'], number> {
-    const result = { queued: 0, running: 0, succeeded: 0, failed: 0 };
-    for (const row of this.db.prepare('SELECT state,COUNT(*) AS n FROM jobs GROUP BY state').all() as Row[]) result[row.state as PrintJob['state']] = Number(row.n);
-    return result;
   }
   activeIds(): Set<string> {
     return new Set((this.db.prepare("SELECT id FROM jobs WHERE state IN ('queued','running')").all() as Row[]).map(row => row.id as string));

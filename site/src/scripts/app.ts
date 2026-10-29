@@ -5,7 +5,7 @@ import { registerPrintJob } from './global-ui';
 
 declare global { interface Window { MathJax?: { startup?: { promise?: Promise<void> }; typesetPromise?: (elements: Element[]) => Promise<void>; typesetClear?: (elements: Element[]) => void } } }
 interface ClientConfig { projectId?: string; title?: string; revision: string; basePath: string; siteUrl: string; readingPages: ReadingPage[]; chapters: { id: string; title: string }[] }
-interface ListConfig { title: string; chapterId?: string; includeDocuments: boolean; revision: string; problems: SearchProblem[]; groups: { title: string; problems: string[] }[]; fragmentBase: string; showChapter: boolean; standalone: boolean }
+interface ListConfig { title: string; problems: SearchProblem[]; groups: { title: string; problems: string[] }[]; fragmentBase: string; showChapter: boolean }
 const client: ClientConfig = JSON.parse(document.querySelector('#course-client-config')!.textContent!);
 const base = client.basePath.replace(/\/+$/, '');
 const api = (path: string) => `${base}/api/${path}`;
@@ -510,7 +510,7 @@ function setupPrinting(section: HTMLElement, config: ListConfig, getIds: () => s
         const response = await fetch(api('print'), { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(request), signal: AbortSignal.timeout(20000) });
         const result = await responseJson(response);
         const title = groups.size > 1 ? `${request.title} · ${chapterTitle(chapterId)}` : request.title || chapterTitle(chapterId);
-        const registered = registerPrintJob(result, { title, project: { id: client.projectId || 'default', title: client.title || '课程', basePath: client.basePath || '/' } });
+        const registered = registerPrintJob(result, { title, project: { id: client.projectId!, title: client.title || '课程', basePath: client.basePath || '/' } });
         if (!registered) throw new Error('打印服务返回的任务状态无效，请稍后重试。');
         submittedCount++;
       }

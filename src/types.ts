@@ -14,7 +14,6 @@ export interface Course {
   title: string; subtitle?: string; author: string; language: string; basePath: string; siteUrl: string;
   chapters: Chapter[]; documents: Record<string, Document>; problems: Record<string, Problem>; sets: Record<string, ExerciseSet>;
   references: Record<string, Reference>; macros: string; macroConfig: Record<string, string | [string, number]>;
-  assets: { source: string; path: string; digest: string }[];
 }
 export interface ProjectEntry { id: string; title: string; subtitle?: string; author?: string; basePath: string; revision: string }
 export interface ProjectCatalog { schemaVersion: 1; title: string; projects: ProjectEntry[] }

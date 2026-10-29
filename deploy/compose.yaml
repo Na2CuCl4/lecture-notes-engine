@@ -16,7 +16,6 @@ x-runtime: &runtime
     HOST: 0.0.0.0
     PORT: "3000"
     RELEASES_DIR: /releases
-    CURRENT_FILE: /releases/current.json
     STATE_DIR: /state
     ASTRO_CACHE_DIR: /tmp/lecture-notes-astro
     PRINT_CONCURRENCY: ${PRINT_CONCURRENCY:-1}
@@ -71,7 +70,6 @@ services:
     command: ["npm", "run", "build", "--", "--projects", "/projects.yaml", "--out", "/releases", "--book", "--local-worker"]
     environment:
       <<: *environment
-      CONTENT_DIR: /content
       # Astro renames prerendered assets; cache and releases must share a mount.
       ASTRO_CACHE_DIR: /releases/.astro-cache
     volumes:
