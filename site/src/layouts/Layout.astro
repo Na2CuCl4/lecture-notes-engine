@@ -17,6 +17,7 @@ const mathConfig = {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#173d36" />
+    <link rel="icon" href={href('favicon.ico')} sizes="any" />
     <meta name="description" content={`${course.title} — 课程笔记、知识点复习与习题。`} />
     <title>{title ? `${title} · ${course.title}` : course.title}</title>
     <script is:inline define:vars={{ mathConfig }}>window.MathJax = mathConfig;</script>

@@ -1,5 +1,6 @@
 ---
 import SiteHeader from '../components/SiteHeader.astro';
+import { href } from '../lib/course';
 import '../styles/global.css';
 ---
 <!doctype html>
@@ -8,6 +9,7 @@ import '../styles/global.css';
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#173d36" />
+    <link rel="icon" href={href('favicon.ico')} sizes="any" />
     <title>课程项目</title>
   </head>
   <body class="portal-body">
